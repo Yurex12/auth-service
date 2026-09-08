@@ -3,21 +3,32 @@ import type { Response, Request } from 'express';
 import type { TypedRequest } from '../../types/express.js';
 
 import type {
-  loginInput,
-  resendVerificationInput,
-  signupInput,
-  verifyEmailInput,
+  ChangePasswordInput,
+  LoginInput,
+  RequestPasswordResetInput,
+  ResendVerificationInput,
+  ResetPasswordInput,
+  SignupInput,
+  VerifyEmailInput,
 } from './auth.schema.js';
+
 import {
+  changePassword as changePasswordService,
   createUser,
   loginUser,
   logoutUser,
   resendVerificationCode,
   verifyUserEmail,
+  requestPasswordReset as requestPasswordResetService,
+  verifyPasswordResetCode as verifyPasswordResetCodeService,
+  resetPassword as resetPasswordService,
 } from './auth.service.js';
-import { thirtyDays } from '../../utils/constant.js';
 
-export const signup = async (req: TypedRequest<signupInput>, res: Response) => {
+import { fifteenMinutes, thirtyDays } from '../../utils/constant.js';
+
+import { AppError } from '../../utils/app-error.js';
+
+export const signup = async (req: TypedRequest<SignupInput>, res: Response) => {
   const user = await createUser({ ...req.body });
 
   res.status(201).json({
@@ -28,7 +39,7 @@ export const signup = async (req: TypedRequest<signupInput>, res: Response) => {
 };
 
 export const verifyEmail = async (
-  req: TypedRequest<verifyEmailInput>,
+  req: TypedRequest<VerifyEmailInput>,
   res: Response,
 ) => {
   await verifyUserEmail({ ...req.body });
@@ -40,7 +51,7 @@ export const verifyEmail = async (
 };
 
 export const resendVerification = async (
-  req: TypedRequest<resendVerificationInput>,
+  req: TypedRequest<ResendVerificationInput>,
   res: Response,
 ) => {
   await resendVerificationCode({ ...req.body });
@@ -50,7 +61,7 @@ export const resendVerification = async (
     message: 'Verification code has been sent to your mail',
   });
 };
-export const login = async (req: TypedRequest<loginInput>, res: Response) => {
+export const login = async (req: TypedRequest<LoginInput>, res: Response) => {
   const userAgent = req.get('user-agent');
   const ipAddress = req.ip;
   const { user, sessionToken } = await loginUser(req.body, {
@@ -79,6 +90,23 @@ export const getCurrentUser = (req: Request, res: Response) => {
   });
 };
 
+export const changePassword = async (
+  req: TypedRequest<ChangePasswordInput>,
+  res: Response,
+) => {
+  await changePasswordService({
+    userId: req.user.id,
+    sessionId: req.sessionId,
+    currentPassword: req.body.currentPassword,
+    newPassword: req.body.newPassword,
+  });
+
+  res.json({
+    success: true,
+    message: 'Password changed successfully',
+  });
+};
+
 export const logout = async (req: Request, res: Response) => {
   const session = req.cookies.session;
 
@@ -97,5 +125,55 @@ export const logout = async (req: Request, res: Response) => {
   res.json({
     success: true,
     message: 'Logout successful',
+  });
+};
+
+export const requestPasswordReset = async (
+  req: TypedRequest<RequestPasswordResetInput>,
+  res: Response,
+) => {
+  await requestPasswordResetService(req.body.email);
+
+  res.json({
+    success: true,
+    message: 'If the email is registered, a reset code has been sent.',
+  });
+};
+export const verifyPasswordResetCode = async (req: Request, res: Response) => {
+  const { resetToken } = await verifyPasswordResetCodeService(req.body);
+
+  res.cookie('resetToken', resetToken, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'strict',
+    maxAge: fifteenMinutes,
+  });
+
+  res.json({
+    success: true,
+    message: 'Code verified',
+  });
+};
+
+export const resetPassword = async (
+  req: TypedRequest<ResetPasswordInput>,
+  res: Response,
+) => {
+  const resetToken = req.cookies.resetToken;
+
+  if (!resetToken)
+    throw new AppError('Invalid or expired password reset session', 400);
+
+  await resetPasswordService({ resetToken, password: req.body.password });
+
+  res.clearCookie('resetToken', {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'strict',
+  });
+
+  res.json({
+    success: true,
+    message: 'Password reset successful',
   });
 };

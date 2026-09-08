@@ -6,7 +6,13 @@ import {
   timestamp,
   uuid,
   varchar,
+  pgEnum,
 } from 'drizzle-orm/pg-core';
+
+export const passwordResetType = pgEnum('password_reset_type', [
+  'code',
+  'reset_token',
+]);
 
 export const usersTable = pgTable('users', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -60,7 +66,9 @@ export const passwordResetsTable = pgTable('password_resets', {
     .unique()
     .notNull()
     .references(() => usersTable.id, { onDelete: 'cascade' }),
-  token: text('token').notNull().unique(),
+  tokenHash: text('token_hash').notNull().unique(),
+  type: passwordResetType('type').notNull(),
+
   expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
   createdAt: timestamp('created_at', { withTimezone: true })
     .defaultNow()

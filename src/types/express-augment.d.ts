@@ -11,6 +11,7 @@ declare global {
       };
 
       userId: string;
+      sessionId: string;
     }
   }
 }

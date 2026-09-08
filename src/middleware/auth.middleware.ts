@@ -2,7 +2,7 @@ import type { NextFunction, Response, Request } from 'express';
 import { AppError } from '../utils/app-error.js';
 import { hashToken } from '../utils/token.js';
 import { db } from '../db/index.js';
-import { sessionsTable } from '../db/schema.js';
+import { sessionsTable, usersTable } from '../db/schema.js';
 import { eq } from 'drizzle-orm';
 
 export const requireAuth = async (
@@ -41,6 +41,7 @@ export const requireAuth = async (
 
   req.user = userSession.user;
   req.userId = userSession.userId;
+  req.sessionId = userSession.id;
 
   next();
 };
