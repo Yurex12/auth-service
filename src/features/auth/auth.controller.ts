@@ -1,9 +1,10 @@
-import type { Response, Request } from 'express';
+import type { Request, Response } from 'express';
 
 import type { TypedRequest } from '../../types/express.js';
 
 import type {
   ChangePasswordInput,
+  googleCallbackQuery,
   LoginInput,
   RequestPasswordResetInput,
   ResendVerificationInput,
@@ -13,23 +14,35 @@ import type {
 } from './auth.schema.js';
 
 import {
+  authenticateWithGoogle,
   changePassword as changePasswordService,
   createUser,
   loginUser,
   logoutUser,
-  resendVerificationCode,
-  verifyUserEmail,
   requestPasswordReset as requestPasswordResetService,
-  verifyPasswordResetCode as verifyPasswordResetCodeService,
+  resendVerificationCode,
   resetPassword as resetPasswordService,
+  verifyPasswordResetCode as verifyPasswordResetCodeService,
+  verifyUserEmail,
 } from './auth.service.js';
 
-import { fifteenMinutes, thirtyDays } from '../../utils/constant.js';
+import {
+  fifteenMinutes,
+  tenMinutes,
+  thirtyDays,
+} from '../../utils/constant.js';
 
 import { AppError } from '../../utils/app-error.js';
+import { generateToken } from '../../utils/token.js';
+import axios from 'axios';
+import {
+  exchangeGoogleCode,
+  googleClient,
+  verifyGoogleIdToken,
+} from './auth.oauth.js';
 
 export const signup = async (req: TypedRequest<SignupInput>, res: Response) => {
-  const user = await createUser({ ...req.body });
+  const { user } = await createUser({ ...req.body });
 
   res.status(201).json({
     success: true,
@@ -176,4 +189,61 @@ export const resetPassword = async (
     success: true,
     message: 'Password reset successful',
   });
+};
+
+export const googleLogin = async (req: Request, res: Response) => {
+  const state = generateToken();
+
+  res.cookie('google_oauth_state', state, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    maxAge: tenMinutes,
+  });
+
+  const params = new URLSearchParams({
+    client_id: process.env.GOOGLE_CLIENT_ID!,
+    redirect_uri: process.env.GOOGLE_REDIRECT_URI!,
+    response_type: 'code',
+    scope: 'openid email profile',
+    state,
+  });
+
+  const googleAuthUrl = `https://accounts.google.com/o/oauth2/v2/auth?${params}`;
+
+  res.redirect(googleAuthUrl);
+};
+
+export const googleCallback = async (
+  req: TypedRequest<unknown, unknown, googleCallbackQuery>,
+  res: Response,
+) => {
+  const cookieState = req.cookies.google_oauth_state;
+
+  const userAgent = req.get('user-agent');
+  const ipAddress = req.ip;
+
+  const urlState = req.query.state;
+  const code = req.query.code;
+
+  if (cookieState !== urlState) throw new AppError('Invalid OAuth state', 400);
+  if (!code) throw new AppError('OAuth code is required', 400);
+
+  const { id_token } = await exchangeGoogleCode(code);
+
+  const ticket = await verifyGoogleIdToken(id_token);
+
+  const payload = ticket.getPayload();
+
+  if (!payload?.sub || !payload?.email || !payload?.email_verified)
+    throw new AppError('Invalid Google account information', 400);
+
+  await authenticateWithGoogle(
+    {
+      accountId: payload.sub,
+      email: payload.email,
+      name: payload.name,
+    },
+    { ipAddress, userAgent },
+  );
 };

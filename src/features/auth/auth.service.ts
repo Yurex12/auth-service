@@ -1,6 +1,7 @@
 import { and, eq, ne } from 'drizzle-orm';
 import { db } from '../../db/index.js';
 import {
+  accountsTable,
   passwordResetsTable,
   sessionsTable,
   usersTable,
@@ -38,11 +39,18 @@ export const createUser = async (userData: SignupInput) => {
   const { user } = await db.transaction(async (tx) => {
     const [user] = await tx
       .insert(usersTable)
-      .values({ email, name, password: hashedPassword })
+      .values({ email, name })
       .onConflictDoNothing({ target: usersTable.email })
       .returning();
 
     if (!user) throw new AppError('Email already exists', 409);
+
+    await tx.insert(accountsTable).values({
+      providerId: 'credential',
+      accountId: user.id,
+      userId: user.id,
+      password: hashedPassword,
+    });
 
     await tx.insert(verificationsTable).values({
       token: hashedCode,
@@ -55,9 +63,7 @@ export const createUser = async (userData: SignupInput) => {
 
   await sendVerificationEmail({ email, code, name });
 
-  const { password: _, ...newUser } = user;
-
-  return { ...newUser };
+  return { user };
 };
 
 export const verifyUserEmail = async (userData: VerifyEmailInput) => {
@@ -114,7 +120,6 @@ export const resendVerificationCode = async ({
 }: ResendVerificationInput) => {
   const user = await db.query.usersTable.findFirst({
     where: (user, { eq }) => eq(user.email, email),
-    columns: { password: false },
   });
 
   if (!user)
@@ -152,7 +157,16 @@ export const loginUser = async (
 
   if (!user) throw new AppError('Incorrect Email or password', 400);
 
-  const passwordMatch = await argon.verify(user.password, password);
+  const account = await db.query.accountsTable.findFirst({
+    where: (account, { eq, and }) =>
+      and(eq(account.providerId, 'credential'), eq(account.userId, user.id)),
+    columns: { password: true },
+  });
+
+  if (!account?.password)
+    throw new AppError('Incorrect Email or password', 400);
+
+  const passwordMatch = await argon.verify(account.password, password);
 
   if (!passwordMatch) throw new AppError('Incorrect Email or password', 400);
 
@@ -169,9 +183,7 @@ export const loginUser = async (
     userAgent,
   });
 
-  const { password: _, ...newUser } = user;
-
-  return { user: newUser, sessionToken };
+  return { user, sessionToken };
 };
 
 export const logoutUser = async (sessionToken: string) => {
@@ -197,27 +209,39 @@ export const changePassword = async ({
 
   if (!user) throw new AppError('User not found', 404);
 
-  const passwordMatch = await argon.verify(user.password, currentPassword);
+  const account = await db.query.accountsTable.findFirst({
+    where: (account, { eq, and }) =>
+      and(eq(account.providerId, 'credential'), eq(account.userId, user.id)),
+    columns: { password: true },
+  });
 
-  if (!passwordMatch) {
-    throw new AppError('Current password is incorrect', 400);
-  }
+  if (!account?.password)
+    throw new AppError(
+      'Password authentication is not available for this account',
+      400,
+    );
+
+  const passwordMatch = await argon.verify(account.password, currentPassword);
+
+  if (!passwordMatch) throw new AppError('Current password is incorrect', 400);
 
   const hashedPassword = await argon.hash(newPassword);
 
   await db.transaction(async (tx) => {
     await tx
-      .update(usersTable)
+      .update(accountsTable)
       .set({ password: hashedPassword })
-      .where(eq(usersTable.id, userId));
+      .where(
+        and(
+          eq(accountsTable.userId, userId),
+          eq(accountsTable.providerId, 'credential'),
+        ),
+      );
 
     await tx
       .delete(sessionsTable)
       .where(
-        and(
-          eq(sessionsTable.userId, userId),
-          ne(sessionsTable.id, sessionId),
-        ),
+        and(eq(sessionsTable.userId, userId), ne(sessionsTable.id, sessionId)),
       );
   });
 };
@@ -225,9 +249,15 @@ export const changePassword = async ({
 export const requestPasswordReset = async (email: string) => {
   const user = await db.query.usersTable.findFirst({
     where: eq(usersTable.email, email),
+    with: {
+      accounts: {
+        where: (account, { eq }) => eq(account.providerId, 'credential'),
+        columns: { id: true },
+      },
+    },
   });
 
-  if (!user) return;
+  if (!user || user.accounts.length === 0) return;
 
   const code = generateOTP();
   const hashedCode = hashToken(code);
@@ -349,9 +379,14 @@ export const resetPassword = async ({
       throw new AppError('Invalid or expired password reset session', 400);
 
     await tx
-      .update(usersTable)
+      .update(accountsTable)
       .set({ password: hashedPassword })
-      .where(eq(usersTable.id, tokenData.userId));
+      .where(
+        and(
+          eq(accountsTable.userId, tokenData.userId),
+          eq(accountsTable.providerId, 'credential'),
+        ),
+      );
 
     await tx
       .delete(sessionsTable)
@@ -366,4 +401,75 @@ export const resetPassword = async ({
   } catch (error) {
     console.error('Failed to send password changed email', error);
   }
+};
+export const authenticateWithGoogle = async (
+  {
+    name,
+    email,
+    accountId,
+  }: {
+    accountId: string;
+    email: string;
+    name: string | undefined;
+  },
+  { ipAddress, userAgent }: LoginMetadata,
+) => {
+  const account = await db.query.accountsTable.findFirst({
+    where: (account, { and, eq }) =>
+      and(eq(account.accountId, accountId), eq(account.providerId, 'google')),
+  });
+
+  const sessionToken = generateToken();
+  const hashedSessionToken = hashToken(sessionToken);
+
+  if (account) {
+    await db.insert(sessionsTable).values({
+      token: hashedSessionToken,
+      userId: account.userId,
+      expiresAt: new Date(Date.now() + thirtyDays),
+      ipAddress,
+      userAgent,
+    });
+  } else {
+    const userEmailExist = await db.query.usersTable.findFirst({
+      where: (user, { eq }) => eq(user.email, email),
+    });
+
+    if (userEmailExist) {
+      // ask to link
+    } else {
+      const { user } = await db.transaction(async (tx) => {
+        const [user] = await tx
+          .insert(usersTable)
+          .values({ email, name: name || 'user', verifiedAt: new Date() })
+          .returning();
+
+        if (!user) throw new AppError('Email already exists', 409);
+
+        await tx.insert(accountsTable).values({
+          providerId: 'google',
+          accountId,
+          userId: user.id,
+        });
+
+        await tx.insert(sessionsTable).values({
+          token: hashedSessionToken,
+          userId: user.id,
+          expiresAt: new Date(Date.now() + thirtyDays),
+          ipAddress,
+          userAgent,
+        });
+
+        return { user };
+      });
+
+      try {
+        await sendWelcomeEmail({ email: user.email, name: user.name });
+      } catch (error) {
+        console.error('Failed to send welcome email', error);
+      }
+    }
+  }
+
+  return { sessionToken };
 };

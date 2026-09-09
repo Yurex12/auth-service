@@ -1,9 +1,9 @@
-import type { NextFunction, Response, Request } from 'express';
+import { eq } from 'drizzle-orm';
+import type { NextFunction, Request, Response } from 'express';
+import { db } from '../db/index.js';
+import { sessionsTable } from '../db/schema.js';
 import { AppError } from '../utils/app-error.js';
 import { hashToken } from '../utils/token.js';
-import { db } from '../db/index.js';
-import { sessionsTable, usersTable } from '../db/schema.js';
-import { eq } from 'drizzle-orm';
 
 export const requireAuth = async (
   req: Request,
@@ -18,11 +18,7 @@ export const requireAuth = async (
 
   const userSession = await db.query.sessionsTable.findFirst({
     where: (session, { eq }) => eq(session.token, hashedSessionToken),
-    with: {
-      user: {
-        columns: { password: false },
-      },
-    },
+    with: { user: true },
   });
 
   if (!userSession) throw new AppError('unauthorized', 401);

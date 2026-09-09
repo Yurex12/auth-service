@@ -1,14 +1,19 @@
 import express from 'express';
+import { requireAuth } from '../../middleware/auth.middleware.js';
 import {
   loginLimiter,
   passwordResetLimiter,
   signupLimiter,
   verificationLimiter,
 } from '../../middleware/rate-limit.js';
-import { validateRequestBody } from '../../middleware/validation.js';
+import {
+  validateRequestBody,
+  validateRequestQuery,
+} from '../../middleware/validation.js';
 import {
   changePassword,
   getCurrentUser,
+  googleLogin,
   login,
   logout,
   requestPasswordReset,
@@ -20,6 +25,7 @@ import {
 } from './auth.controller.js';
 import {
   changePasswordSchema,
+  googleCallbackSchema,
   loginSchema,
   requestPasswordResetSchema,
   resendVerificationSchema,
@@ -28,7 +34,6 @@ import {
   verifyEmailSchema,
   verifyPasswordResetCodeSchema,
 } from './auth.schema.js';
-import { requireAuth } from '../../middleware/auth.middleware.js';
 
 const router = express.Router();
 
@@ -76,6 +81,12 @@ router.post(
   passwordResetLimiter,
   validateRequestBody(resetPasswordSchema),
   resetPassword,
+);
+router.get('/google', googleLogin);
+router.get(
+  '/google/callback',
+  validateRequestQuery(googleCallbackSchema),
+  googleLogin,
 );
 
 export default router;

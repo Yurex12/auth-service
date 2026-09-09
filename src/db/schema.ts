@@ -7,6 +7,7 @@ import {
   uuid,
   varchar,
   pgEnum,
+  unique,
 } from 'drizzle-orm/pg-core';
 
 export const passwordResetType = pgEnum('password_reset_type', [
@@ -18,7 +19,6 @@ export const usersTable = pgTable('users', {
   id: uuid('id').primaryKey().defaultRandom(),
   email: varchar('email').unique().notNull(),
   name: varchar('name').notNull(),
-  password: varchar('password').notNull(),
   verifiedAt: timestamp('verified_at', { withTimezone: true }),
   createdAt: timestamp('created_at', { withTimezone: true })
     .defaultNow()
@@ -28,6 +28,34 @@ export const usersTable = pgTable('users', {
     .notNull()
     .$onUpdate(() => new Date()),
 });
+
+export const accountsTable = pgTable(
+  'accounts',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    providerId: text('provider_id').notNull(),
+    accountId: text('account_id').notNull(),
+    password: text('password'),
+    userId: uuid('user_id')
+      .references(() => usersTable.id, { onDelete: 'cascade' })
+      .notNull(),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at')
+      .defaultNow()
+      .$onUpdate(() => new Date())
+      .notNull(),
+  },
+  (table) => [
+    unique('account_provider_id_account_id_unique').on(
+      table.accountId,
+      table.providerId,
+    ),
+    unique('account_provider_id_user_id_unique').on(
+      table.providerId,
+      table.userId,
+    ),
+  ],
+);
 
 export const sessionsTable = pgTable(
   'sessions',
@@ -68,7 +96,6 @@ export const passwordResetsTable = pgTable('password_resets', {
     .references(() => usersTable.id, { onDelete: 'cascade' }),
   tokenHash: text('token_hash').notNull().unique(),
   type: passwordResetType('type').notNull(),
-
   expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
   createdAt: timestamp('created_at', { withTimezone: true })
     .defaultNow()
@@ -80,6 +107,7 @@ export const userRelations = relations(usersTable, ({ one, many }) => ({
   sessions: many(sessionsTable),
   verification: one(verificationsTable),
   passwordReset: one(passwordResetsTable),
+  accounts: many(accountsTable),
 }));
 
 export const sessionRelations = relations(sessionsTable, ({ one }) => ({
@@ -108,3 +136,9 @@ export const passwordResetRelations = relations(
     }),
   }),
 );
+export const accountRelations = relations(accountsTable, ({ one }) => ({
+  user: one(usersTable, {
+    fields: [accountsTable.userId],
+    references: [usersTable.id],
+  }),
+}));

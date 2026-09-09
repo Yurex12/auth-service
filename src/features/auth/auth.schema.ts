@@ -1,4 +1,5 @@
 import * as z from 'zod';
+import type { codec } from 'zod/mini';
 
 export const emailSchema = z
   .string()
@@ -51,6 +52,11 @@ export const verifyPasswordResetCodeSchema = z.object({
   code: codeSchema,
 });
 
+export const googleCallbackSchema = z.object({
+  code: z.string().min(1, 'Code is required'),
+  state: z.string().min(1, 'State is required'),
+});
+
 export type SignupInput = z.infer<typeof signupSchema>;
 export type VerifyEmailInput = z.infer<typeof verifyEmailSchema>;
 export type ResendVerificationInput = z.infer<typeof resendVerificationSchema>;
@@ -63,3 +69,4 @@ export type VerifyPasswordResetCodeInput = z.infer<
   typeof verifyPasswordResetCodeSchema
 >;
 export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;
+export type googleCallbackQuery = z.infer<typeof googleCallbackSchema>;
