@@ -20,6 +20,7 @@ export function errorHandler(
   res.status(500).json({
     success: false,
     message: 'Internal server error',
+    error: process.env.NODE_ENV === 'production' ? null : error,
   });
 }
 

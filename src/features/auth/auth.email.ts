@@ -1,5 +1,6 @@
 import { resend } from '../../lib/resend.js';
 import { AppError } from '../../utils/app-error.js';
+import { googleAccountLinkedEmailTemplate } from './templates/goggle-account-linked-email.js';
 import { passwordChangedEmailTemplate } from './templates/password-changed-email.js';
 import { passwordResetEmailTemplate } from './templates/password-reset-email.js';
 import { verificationEmailTemplate } from './templates/verification-email.js';
@@ -82,6 +83,27 @@ export async function sendPasswordChangedEmail({
   });
 
   if (error) throw new AppError('Failed to send password changed email', 500);
+
+  return { data };
+}
+
+export async function sendGoogleAccountLinkedEmail({
+  email,
+  name,
+}: {
+  email: string;
+  name: string;
+}) {
+  const { error, data } = await resend.emails.send({
+    from: process.env.EMAIL_FROM!,
+    to: [email],
+    subject: 'Your Google account has been linked',
+    html: googleAccountLinkedEmailTemplate(name),
+  });
+
+  if (error) {
+    throw new AppError('Failed to send Google account linked email', 500);
+  }
 
   return { data };
 }

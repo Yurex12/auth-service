@@ -9,7 +9,7 @@ const validate = (
     try {
       const result = await schema.parseAsync(req[source]);
 
-      req[source] = result;
+      if (source !== 'query') req[source] = result;
 
       next();
     } catch (error) {

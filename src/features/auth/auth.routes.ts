@@ -13,7 +13,9 @@ import {
 import {
   changePassword,
   getCurrentUser,
+  googleCallback,
   googleLogin,
+  linkGoogleAccount,
   login,
   logout,
   requestPasswordReset,
@@ -86,7 +88,8 @@ router.get('/google', googleLogin);
 router.get(
   '/google/callback',
   validateRequestQuery(googleCallbackSchema),
-  googleLogin,
+  googleCallback,
 );
+router.post('/google/link', requireAuth, linkGoogleAccount);
 
 export default router;

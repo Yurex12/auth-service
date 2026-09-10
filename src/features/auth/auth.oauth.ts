@@ -3,6 +3,7 @@ import { AppError } from '../../utils/app-error.js';
 import type { GoogleTokenResponse } from './auth.types.js';
 
 import { OAuth2Client } from 'google-auth-library';
+import { hashToken } from '../../utils/token.js';
 
 export async function exchangeGoogleCode(code: string) {
   try {
@@ -40,3 +41,41 @@ export function verifyGoogleIdToken(token: string) {
     audience: process.env.GOOGLE_CLIENT_ID!,
   });
 }
+
+type OAuthLinkData = {
+  accountId: string;
+  expiresAt: number;
+  userId: string;
+};
+
+export const createOAuthLinkToken = (data: OAuthLinkData) => {
+  const encodedData = Buffer.from(JSON.stringify(data)).toString('base64url');
+  const signature = hashToken(encodedData);
+
+  return `${encodedData}.${signature}`;
+};
+
+export const verifyOAuthLinkToken = (token: string): OAuthLinkData => {
+  const [encodedData, signature] = token.split('.');
+
+  if (!encodedData || !signature)
+    throw new AppError('Invalid OAuth link token', 400);
+
+  const expectedSignature = hashToken(encodedData);
+
+  if (signature !== expectedSignature)
+    throw new AppError('Invalid OAuth link token', 400);
+
+  try {
+    const data = JSON.parse(
+      Buffer.from(encodedData, 'base64url').toString('utf8'),
+    ) as OAuthLinkData;
+
+    if (Date.now() > data.expiresAt)
+      throw new AppError('OAuth link token expired', 400);
+
+    return data;
+  } catch {
+    throw new AppError('Invalid OAuth link token', 400);
+  }
+};

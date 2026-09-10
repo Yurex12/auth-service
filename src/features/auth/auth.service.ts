@@ -11,6 +11,7 @@ import { AppError } from '../../utils/app-error.js';
 import { fifteenMinutes, thirtyDays } from '../../utils/constant.js';
 import { generateToken, generateOTP, hashToken } from '../../utils/token.js';
 import {
+  sendGoogleAccountLinkedEmail,
   sendPasswordChangedEmail,
   sendPasswordResetEmail,
   sendVerificationEmail,
@@ -430,14 +431,15 @@ export const authenticateWithGoogle = async (
       ipAddress,
       userAgent,
     });
+
+    return { sessionToken };
   } else {
-    const userEmailExist = await db.query.usersTable.findFirst({
+    const existingUser = await db.query.usersTable.findFirst({
       where: (user, { eq }) => eq(user.email, email),
     });
 
-    if (userEmailExist) {
-      // ask to link
-    } else {
+    if (existingUser) return { sessionToken: null, userId: existingUser.id };
+    else {
       const { user } = await db.transaction(async (tx) => {
         const [user] = await tx
           .insert(usersTable)
@@ -468,8 +470,35 @@ export const authenticateWithGoogle = async (
       } catch (error) {
         console.error('Failed to send welcome email', error);
       }
+      return { sessionToken };
     }
   }
+};
 
-  return { sessionToken };
+export const linkGoogleAccount = async ({
+  userId,
+  accountId,
+  name,
+  email,
+}: {
+  accountId: string;
+  userId: string;
+  email: string;
+  name: string;
+}) => {
+  const [account] = await db
+    .insert(accountsTable)
+    .values({ accountId, providerId: 'google', userId })
+    .onConflictDoNothing({
+      target: [accountsTable.accountId, accountsTable.providerId],
+    })
+    .returning();
+
+  if (!account) throw new AppError('Account already linked', 409);
+
+  try {
+    await sendGoogleAccountLinkedEmail({ email, name });
+  } catch (error) {
+    console.error('Failed to send Google account linked email', error);
+  }
 };

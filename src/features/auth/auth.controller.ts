@@ -17,6 +17,7 @@ import {
   authenticateWithGoogle,
   changePassword as changePasswordService,
   createUser,
+  linkGoogleAccount as linkGoogleAccountService,
   loginUser,
   logoutUser,
   requestPasswordReset as requestPasswordResetService,
@@ -34,11 +35,11 @@ import {
 
 import { AppError } from '../../utils/app-error.js';
 import { generateToken } from '../../utils/token.js';
-import axios from 'axios';
 import {
+  createOAuthLinkToken,
   exchangeGoogleCode,
-  googleClient,
   verifyGoogleIdToken,
+  verifyOAuthLinkToken,
 } from './auth.oauth.js';
 
 export const signup = async (req: TypedRequest<SignupInput>, res: Response) => {
@@ -227,7 +228,10 @@ export const googleCallback = async (
   const code = req.query.code;
 
   if (cookieState !== urlState) throw new AppError('Invalid OAuth state', 400);
+
   if (!code) throw new AppError('OAuth code is required', 400);
+
+  res.clearCookie('google_oauth_state');
 
   const { id_token } = await exchangeGoogleCode(code);
 
@@ -238,7 +242,7 @@ export const googleCallback = async (
   if (!payload?.sub || !payload?.email || !payload?.email_verified)
     throw new AppError('Invalid Google account information', 400);
 
-  await authenticateWithGoogle(
+  const { sessionToken, userId } = await authenticateWithGoogle(
     {
       accountId: payload.sub,
       email: payload.email,
@@ -246,4 +250,59 @@ export const googleCallback = async (
     },
     { ipAddress, userAgent },
   );
+
+  if (!sessionToken && userId) {
+    const token = createOAuthLinkToken({
+      accountId: payload.sub,
+      expiresAt: Date.now() + tenMinutes,
+      userId,
+    });
+
+    res.cookie('google_link_token', token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: tenMinutes,
+    });
+
+    res.redirect(
+      `${process.env.CLIENT_URL}/login?google=account-link-required`,
+    );
+  } else if (sessionToken) {
+    res.cookie('session', sessionToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: thirtyDays,
+    });
+
+    res.redirect(`${process.env.CLIENT_URL}/login?google=success`);
+  } else {
+    throw new AppError('Google authentication failed', 400);
+  }
+};
+
+export const linkGoogleAccount = async (req: Request, res: Response) => {
+  const googleLinkToken = req.cookies.google_link_token;
+
+  if (!googleLinkToken)
+    throw new AppError('Google link token is required', 400);
+
+  const { accountId, userId } = verifyOAuthLinkToken(googleLinkToken);
+
+  if (req.userId !== userId) throw new AppError('Invalid operation', 400);
+
+  await linkGoogleAccountService({
+    accountId,
+    userId: req.userId,
+    email: req.user.email,
+    name: req.user.name,
+  });
+
+  res.clearCookie('google_link_token');
+
+  res.json({
+    success: true,
+    message: 'Google Account linked successfully',
+  });
 };
