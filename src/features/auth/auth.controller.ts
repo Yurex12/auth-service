@@ -233,7 +233,10 @@ export const googleCallback = async (
 
   res.clearCookie('google_oauth_state');
 
-  const { id_token } = await exchangeGoogleCode(code);
+  const { id_token } = await exchangeGoogleCode(
+    code,
+    process.env.GOOGLE_REDIRECT_URI!,
+  );
 
   const ticket = await verifyGoogleIdToken(id_token);
 
@@ -305,4 +308,72 @@ export const linkGoogleAccount = async (req: Request, res: Response) => {
     success: true,
     message: 'Google Account linked successfully',
   });
+};
+
+// Account linking after logging in
+export const startGoogleLink = async (req: Request, res: Response) => {
+  const state = generateToken();
+
+  res.cookie('google_link_oauth_state', state, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    maxAge: tenMinutes,
+  });
+
+  const params = new URLSearchParams({
+    client_id: process.env.GOOGLE_CLIENT_ID!,
+    redirect_uri: process.env.GOOGLE_LINK_REDIRECT_URI!,
+    response_type: 'code',
+    scope: 'openid email profile',
+    state,
+  });
+
+  const googleAuthUrl = `https://accounts.google.com/o/oauth2/v2/auth?${params}`;
+
+  res.redirect(googleAuthUrl);
+};
+
+export const googleLinkCallback = async (
+  req: TypedRequest<unknown, unknown, googleCallbackQuery>,
+  res: Response,
+) => {
+  const cookieState = req.cookies.google_link_oauth_state;
+
+  const urlState = req.query.state;
+  const code = req.query.code;
+
+  if (cookieState !== urlState) throw new AppError('Invalid OAuth state', 400);
+
+  if (!code) throw new AppError('OAuth code is required', 400);
+
+  res.clearCookie('google_link_oauth_state');
+
+  const { id_token } = await exchangeGoogleCode(
+    code,
+    process.env.GOOGLE_LINK_REDIRECT_URI!,
+  );
+
+  const ticket = await verifyGoogleIdToken(id_token);
+
+  const payload = ticket.getPayload();
+
+  if (!payload?.sub || !payload?.email || !payload?.email_verified)
+    throw new AppError('Invalid Google account information', 400);
+
+  if (payload.email !== req.user.email) {
+    throw new AppError(
+      'Google account email does not match signed-in user',
+      400,
+    );
+  }
+
+  await linkGoogleAccountService({
+    accountId: payload.sub,
+    userId: req.userId,
+    email: payload.email,
+    name: payload.name || 'user',
+  });
+
+  res.redirect(`${process.env.CLIENT_URL}/settings?google=linked`);
 };

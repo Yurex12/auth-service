@@ -486,15 +486,26 @@ export const linkGoogleAccount = async ({
   email: string;
   name: string;
 }) => {
-  const [account] = await db
-    .insert(accountsTable)
-    .values({ accountId, providerId: 'google', userId })
-    .onConflictDoNothing({
-      target: [accountsTable.accountId, accountsTable.providerId],
-    })
-    .returning();
+  const existingAccount = await db.query.accountsTable.findFirst({
+    where: (account, { and, eq }) =>
+      and(eq(account.providerId, 'google'), eq(account.accountId, accountId)),
+  });
 
-  if (!account) throw new AppError('Account already linked', 409);
+  if (existingAccount) throw new AppError('Google account already linked', 409);
+
+  const existingGoogleAccount = await db.query.accountsTable.findFirst({
+    where: (account, { and, eq }) =>
+      and(eq(account.providerId, 'google'), eq(account.userId, userId)),
+  });
+
+  if (existingGoogleAccount)
+    throw new AppError('User already has a Google account linked', 409);
+
+  await db.insert(accountsTable).values({
+    accountId,
+    providerId: 'google',
+    userId,
+  });
 
   try {
     await sendGoogleAccountLinkedEmail({ email, name });

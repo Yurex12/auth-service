@@ -5,7 +5,7 @@ import type { GoogleTokenResponse } from './auth.types.js';
 import { OAuth2Client } from 'google-auth-library';
 import { hashToken } from '../../utils/token.js';
 
-export async function exchangeGoogleCode(code: string) {
+export async function exchangeGoogleCode(code: string, redirectURI: string) {
   try {
     const { data } = await axios.post<GoogleTokenResponse>(
       'https://oauth2.googleapis.com/token',
@@ -13,7 +13,7 @@ export async function exchangeGoogleCode(code: string) {
         code,
         client_secret: process.env.GOOGLE_CLIENT_SECRET,
         client_id: process.env.GOOGLE_CLIENT_ID,
-        redirect_uri: process.env.GOOGLE_REDIRECT_URI,
+        redirect_uri: redirectURI,
         grant_type: 'authorization_code',
       },
     );

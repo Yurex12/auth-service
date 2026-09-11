@@ -14,6 +14,7 @@ import {
   changePassword,
   getCurrentUser,
   googleCallback,
+  googleLinkCallback,
   googleLogin,
   linkGoogleAccount,
   login,
@@ -22,6 +23,7 @@ import {
   resendVerification,
   resetPassword,
   signup,
+  startGoogleLink,
   verifyEmail,
   verifyPasswordResetCode,
 } from './auth.controller.js';
@@ -91,5 +93,14 @@ router.get(
   googleCallback,
 );
 router.post('/google/link', requireAuth, linkGoogleAccount);
+
+// link account after having logged In
+router.get('/google/link', requireAuth, startGoogleLink);
+router.get(
+  '/google/link/callback',
+  requireAuth,
+  validateRequestQuery(googleCallbackSchema),
+  googleLinkCallback,
+);
 
 export default router;
