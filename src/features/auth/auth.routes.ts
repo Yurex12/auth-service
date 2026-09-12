@@ -8,11 +8,13 @@ import {
 } from '../../middleware/rate-limit.js';
 import {
   validateRequestBody,
+  validateRequestParams,
   validateRequestQuery,
 } from '../../middleware/validation.js';
 import {
   changePassword,
   getCurrentUser,
+  getSessions,
   googleCallback,
   googleLinkCallback,
   googleLogin,
@@ -22,6 +24,7 @@ import {
   requestPasswordReset,
   resendVerification,
   resetPassword,
+  revokeSession,
   signup,
   startGoogleLink,
   verifyEmail,
@@ -30,6 +33,7 @@ import {
 import {
   changePasswordSchema,
   googleCallbackSchema,
+  idParamsSchema,
   loginSchema,
   requestPasswordResetSchema,
   resendVerificationSchema,
@@ -101,6 +105,14 @@ router.get(
   requireAuth,
   validateRequestQuery(googleCallbackSchema),
   googleLinkCallback,
+);
+
+router.get('/session', requireAuth, getSessions);
+router.delete(
+  '/session/:id',
+  requireAuth,
+  validateRequestParams(idParamsSchema),
+  revokeSession,
 );
 
 export default router;

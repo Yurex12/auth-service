@@ -513,3 +513,21 @@ export const linkGoogleAccount = async ({
     console.error('Failed to send Google account linked email', error);
   }
 };
+export const getActiveSessions = async (userId: string) => {
+  const sessions = await db.query.sessionsTable.findMany({
+    where: (session, { eq }) => eq(session.userId, userId),
+  });
+
+  return { sessions };
+};
+export const revokeSession = async (userId: string, sessionId: string) => {
+  const deletedSession = await db
+    .delete(sessionsTable)
+    .where(
+      and(eq(sessionsTable.userId, userId), eq(sessionsTable.id, sessionId)),
+    )
+    .returning({ id: sessionsTable.id });
+
+  if (deletedSession.length === 0)
+    throw new AppError('Session does not exist', 400);
+};

@@ -4,7 +4,8 @@ import type { TypedRequest } from '../../types/express.js';
 
 import type {
   ChangePasswordInput,
-  googleCallbackQuery,
+  GoogleCallbackQuery,
+  IdParam,
   LoginInput,
   RequestPasswordResetInput,
   ResendVerificationInput,
@@ -17,12 +18,14 @@ import {
   authenticateWithGoogle,
   changePassword as changePasswordService,
   createUser,
+  getActiveSessions,
   linkGoogleAccount as linkGoogleAccountService,
   loginUser,
   logoutUser,
   requestPasswordReset as requestPasswordResetService,
   resendVerificationCode,
   resetPassword as resetPasswordService,
+  revokeSession as revokeSessionService,
   verifyPasswordResetCode as verifyPasswordResetCodeService,
   verifyUserEmail,
 } from './auth.service.js';
@@ -216,7 +219,7 @@ export const googleLogin = async (req: Request, res: Response) => {
 };
 
 export const googleCallback = async (
-  req: TypedRequest<unknown, unknown, googleCallbackQuery>,
+  req: TypedRequest<unknown, unknown, GoogleCallbackQuery>,
   res: Response,
 ) => {
   const cookieState = req.cookies.google_oauth_state;
@@ -335,7 +338,7 @@ export const startGoogleLink = async (req: Request, res: Response) => {
 };
 
 export const googleLinkCallback = async (
-  req: TypedRequest<unknown, unknown, googleCallbackQuery>,
+  req: TypedRequest<unknown, unknown, GoogleCallbackQuery>,
   res: Response,
 ) => {
   const cookieState = req.cookies.google_link_oauth_state;
@@ -376,4 +379,33 @@ export const googleLinkCallback = async (
   });
 
   res.redirect(`${process.env.CLIENT_URL}/settings?google=linked`);
+};
+
+export const getSessions = async (req: Request, res: Response) => {
+  const sessionId = req.sessionId;
+  const { sessions } = await getActiveSessions(req.userId);
+
+  const activeSessions = sessions.map((session) => ({
+    ...session,
+    token: null,
+    currentSession: session.token === sessionId,
+  }));
+
+  res.json({
+    success: true,
+    message: 'Successful',
+    sessions: activeSessions,
+  });
+};
+
+export const revokeSession = async (
+  req: TypedRequest<unknown, IdParam>,
+  res: Response,
+) => {
+  await revokeSessionService(req.userId, req.params.id);
+
+  res.json({
+    success: true,
+    message: 'Successful',
+  });
 };
