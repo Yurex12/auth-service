@@ -26,6 +26,8 @@ import {
   resendVerificationCode,
   resetPassword as resetPasswordService,
   revokeSession as revokeSessionService,
+  revokeOtherSessions as revokeOtherSessionsService,
+  revokeAllSessions as revokeAllSessionsService,
   verifyPasswordResetCode as verifyPasswordResetCodeService,
   verifyUserEmail,
 } from './auth.service.js';
@@ -388,12 +390,12 @@ export const getSessions = async (req: Request, res: Response) => {
   const activeSessions = sessions.map((session) => ({
     ...session,
     token: null,
-    currentSession: session.token === sessionId,
+    currentSession: session.id === sessionId,
   }));
 
   res.json({
     success: true,
-    message: 'Successful',
+    message: 'Sessions fetched successfully',
     sessions: activeSessions,
   });
 };
@@ -403,6 +405,24 @@ export const revokeSession = async (
   res: Response,
 ) => {
   await revokeSessionService(req.userId, req.params.id);
+
+  res.json({
+    success: true,
+    message: 'Successful',
+  });
+};
+
+export const revokeOtherSessions = async (req: Request, res: Response) => {
+  await revokeOtherSessionsService(req.userId, req.sessionId);
+
+  res.json({
+    success: true,
+    message: 'Successful',
+  });
+};
+
+export const revokeAllSessions = async (req: Request, res: Response) => {
+  await revokeAllSessionsService(req.userId);
 
   res.json({
     success: true,

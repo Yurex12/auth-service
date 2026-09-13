@@ -24,7 +24,8 @@ import {
   requestPasswordReset,
   resendVerification,
   resetPassword,
-  revokeSession,
+  revokeAllSessions,
+  revokeOtherSessions,
   signup,
   startGoogleLink,
   verifyEmail,
@@ -107,12 +108,17 @@ router.get(
   googleLinkCallback,
 );
 
-router.get('/session', requireAuth, getSessions);
+router.get('/sessions', requireAuth, getSessions);
+
+router.delete('/sessions/others', requireAuth, revokeOtherSessions);
+
+router.delete('/sessions/all', requireAuth, revokeAllSessions);
+
 router.delete(
-  '/session/:id',
+  '/sessions/:id',
   requireAuth,
   validateRequestParams(idParamsSchema),
-  revokeSession,
+  revokeAllSessions,
 );
 
 export default router;

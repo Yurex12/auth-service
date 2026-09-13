@@ -1,4 +1,4 @@
-import { and, eq, ne } from 'drizzle-orm';
+import { and, desc, eq, ne } from 'drizzle-orm';
 import { db } from '../../db/index.js';
 import {
   accountsTable,
@@ -515,7 +515,9 @@ export const linkGoogleAccount = async ({
 };
 export const getActiveSessions = async (userId: string) => {
   const sessions = await db.query.sessionsTable.findMany({
-    where: (session, { eq }) => eq(session.userId, userId),
+    where: (session, { eq, and, gt }) =>
+      and(eq(session.userId, userId), gt(session.expiresAt, new Date())),
+    orderBy: desc(sessionsTable.createdAt),
   });
 
   return { sessions };
@@ -530,4 +532,26 @@ export const revokeSession = async (userId: string, sessionId: string) => {
 
   if (deletedSession.length === 0)
     throw new AppError('Session does not exist', 400);
+};
+
+export const revokeOtherSessions = async (
+  userId: string,
+  sessionId: string,
+) => {
+  const deletedSession = await db
+    .delete(sessionsTable)
+    .where(
+      and(eq(sessionsTable.userId, userId), ne(sessionsTable.id, sessionId)),
+    )
+    .returning({ id: sessionsTable.id });
+};
+
+export const revokeAllSessions = async (userId: string) => {
+  const deletedSession = await db
+    .delete(sessionsTable)
+    .where(and(eq(sessionsTable.userId, userId)))
+    .returning({ id: sessionsTable.id });
+
+  if (deletedSession.length === 0)
+    throw new AppError('No active sessions', 400);
 };
