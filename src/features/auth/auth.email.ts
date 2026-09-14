@@ -1,6 +1,6 @@
 import { resend } from '../../lib/resend.js';
 import { AppError } from '../../utils/app-error.js';
-import { googleAccountLinkedEmailTemplate } from './templates/goggle-account-linked-email.js';
+import { googleAccountLinkedEmailTemplate } from './templates/google-account-linked-email.js';
 import { passwordChangedEmailTemplate } from './templates/password-changed-email.js';
 import { passwordResetEmailTemplate } from './templates/password-reset-email.js';
 import { verificationEmailTemplate } from './templates/verification-email.js';

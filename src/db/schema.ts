@@ -19,6 +19,9 @@ export const usersTable = pgTable('users', {
   id: uuid('id').primaryKey().defaultRandom(),
   email: varchar('email').unique().notNull(),
   name: varchar('name').notNull(),
+  roleId: uuid('role_id')
+    .notNull()
+    .references(() => rolesTable.id),
   verifiedAt: timestamp('verified_at', { withTimezone: true }),
   createdAt: timestamp('created_at', { withTimezone: true })
     .defaultNow()
@@ -102,13 +105,89 @@ export const passwordResetsTable = pgTable('password_resets', {
     .notNull(),
 });
 
+export const rolesTable = pgTable('roles', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  name: varchar('name').notNull().unique(),
+  createdAt: timestamp('created_at', { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true })
+    .defaultNow()
+    .$onUpdate(() => new Date())
+    .notNull(),
+});
+
+export const permissionsTable = pgTable('permissions', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  name: varchar('name').notNull().unique(),
+  createdAt: timestamp('created_at', { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true })
+    .defaultNow()
+    .$onUpdate(() => new Date())
+    .notNull(),
+});
+
+export const rolePermissionsTable = pgTable(
+  'role_permissions',
+  {
+    roleId: uuid('role_id')
+      .notNull()
+      .references(() => rolesTable.id, { onDelete: 'cascade' }),
+    permissionId: uuid('permission_id')
+      .notNull()
+      .references(() => permissionsTable.id, { onDelete: 'cascade' }),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true })
+      .defaultNow()
+      .$onUpdate(() => new Date())
+      .notNull(),
+  },
+  (table) => [
+    unique('role_permissions_role_id_permission_id_unq').on(
+      table.roleId,
+      table.permissionId,
+    ),
+  ],
+);
+
 // Relations
 export const userRelations = relations(usersTable, ({ one, many }) => ({
   sessions: many(sessionsTable),
   verification: one(verificationsTable),
   passwordReset: one(passwordResetsTable),
   accounts: many(accountsTable),
+  role: one(rolesTable, {
+    fields: [usersTable.roleId],
+    references: [rolesTable.id],
+  }),
 }));
+
+export const roleRelations = relations(rolesTable, ({ one, many }) => ({
+  users: many(usersTable),
+  rolePermissions: many(rolePermissionsTable),
+}));
+
+export const permissionsRelations = relations(permissionsTable, ({ many }) => ({
+  rolePermissions: many(rolePermissionsTable),
+}));
+
+export const rolePermissionsRelations = relations(
+  rolePermissionsTable,
+  ({ one }) => ({
+    role: one(rolesTable, {
+      fields: [rolePermissionsTable.roleId],
+      references: [rolesTable.id],
+    }),
+    permission: one(permissionsTable, {
+      fields: [rolePermissionsTable.permissionId],
+      references: [permissionsTable.id],
+    }),
+  }),
+);
 
 export const sessionRelations = relations(sessionsTable, ({ one }) => ({
   user: one(usersTable, {

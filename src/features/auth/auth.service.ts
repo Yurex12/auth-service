@@ -38,9 +38,18 @@ export const createUser = async (userData: SignupInput) => {
   const hashedCode = hashToken(code);
 
   const { user } = await db.transaction(async (tx) => {
+    const userRole = await tx.query.rolesTable.findFirst({
+      where: (role, { eq }) => eq(role.name, 'user'),
+    });
+
+    if (!userRole) {
+      console.error('Default user role is not configured');
+      throw new AppError('Something went wrong', 500);
+    }
+
     const [user] = await tx
       .insert(usersTable)
-      .values({ email, name })
+      .values({ email, name, roleId: userRole.id })
       .onConflictDoNothing({ target: usersTable.email })
       .returning();
 
@@ -440,9 +449,23 @@ export const authenticateWithGoogle = async (
     if (existingUser) return { sessionToken: null, userId: existingUser.id };
     else {
       const { user } = await db.transaction(async (tx) => {
+        const userRole = await tx.query.rolesTable.findFirst({
+          where: (role, { eq }) => eq(role.name, 'user'),
+        });
+
+        if (!userRole) {
+          console.error('Default user role is not configured');
+          throw new AppError('Something went wrong', 500);
+        }
+
         const [user] = await tx
           .insert(usersTable)
-          .values({ email, name: name || 'user', verifiedAt: new Date() })
+          .values({
+            email,
+            name: name || 'user',
+            verifiedAt: new Date(),
+            roleId: userRole.id,
+          })
           .returning();
 
         if (!user) throw new AppError('Email already exists', 409);
