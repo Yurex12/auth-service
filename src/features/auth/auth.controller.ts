@@ -388,8 +388,12 @@ export const getSessions = async (req: Request, res: Response) => {
   const { sessions } = await getActiveSessions(req.userId);
 
   const activeSessions = sessions.map((session) => ({
-    ...session,
-    token: null,
+    id: session.id,
+    ipAddress: session.ipAddress,
+    userAgent: session.userId,
+    createdAt: session.createdAt,
+    expiresAt: session.expiresAt,
+
     currentSession: session.id === sessionId,
   }));
 

@@ -123,8 +123,7 @@ export const resendVerificationCode = async ({
     where: (user, { eq }) => eq(user.email, email),
   });
 
-  if (!user)
-    throw new AppError('Verification code has been sent to your mail', 404);
+  if (!user) return;
 
   if (user.verifiedAt) throw new AppError('User already verified', 400);
 
@@ -538,20 +537,15 @@ export const revokeOtherSessions = async (
   userId: string,
   sessionId: string,
 ) => {
-  const deletedSession = await db
+  await db
     .delete(sessionsTable)
     .where(
       and(eq(sessionsTable.userId, userId), ne(sessionsTable.id, sessionId)),
-    )
-    .returning({ id: sessionsTable.id });
+    );
 };
 
 export const revokeAllSessions = async (userId: string) => {
   const deletedSession = await db
     .delete(sessionsTable)
-    .where(and(eq(sessionsTable.userId, userId)))
-    .returning({ id: sessionsTable.id });
-
-  if (deletedSession.length === 0)
-    throw new AppError('No active sessions', 400);
+    .where(eq(sessionsTable.userId, userId));
 };
