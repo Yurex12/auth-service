@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { AppError } from '../../utils/app-error.js';
+import { logger } from '../../utils/logger.js';
 import type { GoogleTokenResponse } from './auth.types.js';
 
 import { OAuth2Client } from 'google-auth-library';
@@ -21,9 +22,9 @@ export async function exchangeGoogleCode(code: string, redirectURI: string) {
     return data;
   } catch (error) {
     if (axios.isAxiosError(error)) {
-      console.error('Google token exchange failed:', error.response?.data);
+      logger.error({ data: error.response?.data }, 'Google token exchange failed');
     } else {
-      console.error('Google token exchange failed:', error);
+      logger.error({ err: error }, 'Google token exchange failed');
     }
 
     throw new AppError('Google authentication failed', 400);

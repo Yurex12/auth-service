@@ -3,6 +3,7 @@ import type { NextFunction, Request, Response } from 'express';
 import { db } from '../db/index.js';
 import { sessionsTable } from '../db/schema.js';
 import { AppError } from '../utils/app-error.js';
+import { logger } from '../utils/logger.js';
 import { hashToken } from '../utils/token.js';
 
 export const requireAuth = async (
@@ -29,7 +30,7 @@ export const requireAuth = async (
         .delete(sessionsTable)
         .where(eq(sessionsTable.id, userSession.id));
     } catch (error) {
-      console.error('Failed to delete expired session', error);
+      logger.error({ err: error }, 'Failed to delete expired session');
     }
 
     throw new AppError('Session has expired', 401);

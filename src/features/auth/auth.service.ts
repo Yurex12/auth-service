@@ -28,6 +28,7 @@ import type {
 
 import argon from 'argon2';
 import type { LoginMetadata } from './auth.types.js';
+import { logger } from '../../utils/logger.js';
 
 export const createUser = async (userData: SignupInput) => {
   const { name, email, password } = userData;
@@ -43,7 +44,7 @@ export const createUser = async (userData: SignupInput) => {
     });
 
     if (!userRole) {
-      console.error('Default user role is not configured');
+      logger.error('Default user role is not configured');
       throw new AppError('Something went wrong', 500);
     }
 
@@ -121,7 +122,7 @@ export const verifyUserEmail = async (userData: VerifyEmailInput) => {
   try {
     await sendWelcomeEmail({ email: userData.email, name: user.name });
   } catch (error) {
-    console.error('Failed to send welcome email', error);
+    logger.error({ err: error }, 'Failed to send welcome email');
   }
 };
 
@@ -408,7 +409,7 @@ export const resetPassword = async ({
       name: tokenData.user.name,
     });
   } catch (error) {
-    console.error('Failed to send password changed email', error);
+    logger.error({ err: error }, 'Failed to send password changed email');
   }
 };
 export const authenticateWithGoogle = async (
@@ -454,7 +455,7 @@ export const authenticateWithGoogle = async (
         });
 
         if (!userRole) {
-          console.error('Default user role is not configured');
+          logger.error('Default user role is not configured');
           throw new AppError('Something went wrong', 500);
         }
 
@@ -490,7 +491,7 @@ export const authenticateWithGoogle = async (
       try {
         await sendWelcomeEmail({ email: user.email, name: user.name });
       } catch (error) {
-        console.error('Failed to send welcome email', error);
+        logger.error({ err: error }, 'Failed to send welcome email');
       }
       return { sessionToken };
     }
@@ -532,7 +533,10 @@ export const linkGoogleAccount = async ({
   try {
     await sendGoogleAccountLinkedEmail({ email, name });
   } catch (error) {
-    console.error('Failed to send Google account linked email', error);
+    logger.error(
+      { err: error },
+      'Failed to send Google account linked email',
+    );
   }
 };
 export const getActiveSessions = async (userId: string) => {

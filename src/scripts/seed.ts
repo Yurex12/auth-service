@@ -4,6 +4,7 @@ import {
   rolePermissionsTable,
   rolesTable,
 } from '../db/schema.js';
+import { logger } from '../utils/logger.js';
 
 const rolesData = [{ name: 'user' }, { name: 'admin' }];
 
@@ -128,10 +129,10 @@ async function main() {
 
 main()
   .then(() => {
-    console.log('Database seeded successfully.');
+    logger.info('Database seeded successfully.');
     process.exit(0);
   })
   .catch((err) => {
-    console.error('Seed failed:', err);
+    logger.error({ err }, 'Seed failed');
     process.exit(1);
   });

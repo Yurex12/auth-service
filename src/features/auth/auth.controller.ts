@@ -39,6 +39,7 @@ import {
 } from '../../utils/constant.js';
 
 import { AppError } from '../../utils/app-error.js';
+import { logger } from '../../utils/logger.js';
 import { generateToken } from '../../utils/token.js';
 import {
   createOAuthLinkToken,
@@ -132,7 +133,7 @@ export const logout = async (req: Request, res: Response) => {
   try {
     if (session) await logoutUser(session);
   } catch (error) {
-    console.error('Failed to delete session', error);
+    logger.error({ err: error }, 'Failed to delete session');
   }
 
   res.clearCookie('session', {
@@ -393,7 +394,6 @@ export const getSessions = async (req: Request, res: Response) => {
     userAgent: session.userId,
     createdAt: session.createdAt,
     expiresAt: session.expiresAt,
-
     currentSession: session.id === sessionId,
   }));
 

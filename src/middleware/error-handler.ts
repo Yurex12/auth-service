@@ -1,5 +1,6 @@
 import type { Request, Response, NextFunction } from 'express';
 import { AppError } from '../utils/app-error.js';
+import { logger } from '../utils/logger.js';
 
 export function errorHandler(
   error: unknown,
@@ -7,7 +8,7 @@ export function errorHandler(
   res: Response,
   next: NextFunction,
 ) {
-  console.error(error);
+  logger.error({ err: error });
 
   if (error instanceof AppError) {
     res.status(error.statusCode).json({
