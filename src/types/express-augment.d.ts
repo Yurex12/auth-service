@@ -8,6 +8,10 @@ declare global {
         verifiedAt: Date | null;
         createdAt: Date;
         updatedAt: Date;
+        roleId: string;
+        role: {
+          name: string;
+        };
       };
 
       userId: string;

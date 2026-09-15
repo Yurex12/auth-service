@@ -18,7 +18,7 @@ export const requireAuth = async (
 
   const userSession = await db.query.sessionsTable.findFirst({
     where: (session, { eq }) => eq(session.token, hashedSessionToken),
-    with: { user: true },
+    with: { user: { with: { role: { columns: { name: true } } } } },
   });
 
   if (!userSession) throw new AppError('unauthorized', 401);

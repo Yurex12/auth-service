@@ -11,6 +11,7 @@ const permissionsData = [
   { name: 'users:read' },
   { name: 'users:update' },
   { name: 'users:delete' },
+  { name: 'users:role:update' },
   { name: 'posts:create' },
   { name: 'posts:read' },
   { name: 'posts:update' },
@@ -52,6 +53,7 @@ async function main() {
     const postsDeleteId = permissionsMap.get('posts:delete');
     const usersReadId = permissionsMap.get('users:read');
     const usersUpdateId = permissionsMap.get('users:update');
+    const usersRoleUpdateId = permissionsMap.get('users:role:update');
     const usersDeleteId = permissionsMap.get('users:delete');
 
     if (
@@ -63,6 +65,7 @@ async function main() {
       !postsDeleteId ||
       !usersReadId ||
       !usersUpdateId ||
+      !usersRoleUpdateId ||
       !usersDeleteId
     ) {
       throw new Error('Required RBAC seed data not found');
@@ -104,6 +107,10 @@ async function main() {
       {
         roleId: adminRoleId,
         permissionId: usersUpdateId,
+      },
+      {
+        roleId: adminRoleId,
+        permissionId: usersRoleUpdateId,
       },
     ];
 
