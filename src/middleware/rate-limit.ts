@@ -18,6 +18,7 @@ const createLimiter = ({
       success: false,
       message,
     },
+    skip: () => process.env.NODE_ENV === 'test',
   });
 
 export const globalLimiter = createLimiter({
