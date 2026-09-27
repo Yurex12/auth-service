@@ -2,6 +2,8 @@ import express from 'express';
 import cookieParser from 'cookie-parser';
 import { pinoHttp } from 'pino-http';
 
+import swaggerUi from 'swagger-ui-express';
+
 import { logger } from './utils/logger.js';
 
 import { errorHandler, notFoundHandler } from './middleware/error-handler.js';
@@ -10,8 +12,15 @@ import authRoutes from './features/auth/auth.routes.js';
 import postRoutes from './features/post/post.routes.js';
 import userRoutes from './features/user/user.routes.js';
 import { globalLimiter } from './middleware/rate-limit.js';
+import { swaggerSpec } from './docs/swagger.js';
 
 const app = express();
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+
+app.get('/api-docs.json', (req, res) => {
+  res.setHeader('Content-Type', 'application/json');
+  res.send(swaggerSpec);
+});
 
 app.use(
   pinoHttp({
