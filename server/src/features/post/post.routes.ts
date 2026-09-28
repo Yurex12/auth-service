@@ -189,8 +189,10 @@ router.patch(
  * /posts/{id}:
  *   delete:
  *     summary: Deletes a post
- *     details: Delete the post with the specified id in the database
+ *     description: Delete the post with the specified id in the database
  *     tags: [Posts]
+ *     security:
+ *       - cookieAuth: []
  *     parameters:
  *       - in: path
  *         name: id
