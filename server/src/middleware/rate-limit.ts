@@ -29,13 +29,15 @@ export const globalLimiter = createLimiter({
 
 export const signupLimiter = createLimiter({
   windowMs: 15 * 60 * 1000,
-  limit: 5,
+  // limit: 5,
+  limit: 50,
   message: 'Too many sign up attempts, please try again later.',
 });
 
 export const verificationLimiter = createLimiter({
   windowMs: 15 * 60 * 1000,
-  limit: 3,
+  limit: 30,
+  // limit: 3,
   message: 'Too many verification attempts, please try again later.',
 });
 
@@ -47,6 +49,7 @@ export const loginLimiter = createLimiter({
 
 export const passwordResetLimiter = createLimiter({
   windowMs: 15 * 60 * 1000,
-  limit: 3,
+  // limit: 3,
+  limit: 30,
   message: 'Too many password reset attempts, please try again later.',
 });

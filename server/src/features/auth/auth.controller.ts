@@ -62,11 +62,25 @@ export const verifyEmail = async (
   req: TypedRequest<VerifyEmailInput>,
   res: Response,
 ) => {
-  await verifyUserEmail({ ...req.body });
+  const userAgent = req.get('user-agent');
+  const ipAddress = req.ip;
+
+  const { user, sessionToken } = await verifyUserEmail(req.body, {
+    ipAddress,
+    userAgent,
+  });
+
+  res.cookie('session', sessionToken, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    maxAge: thirtyDays,
+  });
 
   res.json({
     success: true,
     message: 'Email has been verified',
+    user,
   });
 };
 

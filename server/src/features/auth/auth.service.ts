@@ -77,12 +77,14 @@ export const createUser = async (userData: SignupInput) => {
   return { user };
 };
 
-export const verifyUserEmail = async (userData: VerifyEmailInput) => {
+export const verifyUserEmail = async (
+  userData: VerifyEmailInput,
+  { ipAddress, userAgent }: LoginMetadata,
+) => {
   const hashedCode = hashToken(userData.code);
 
   const user = await db.query.usersTable.findFirst({
     where: (user, { eq }) => eq(user.email, userData.email),
-    columns: { verifiedAt: true, name: true, id: true },
   });
 
   if (!user) throw new AppError('Invalid code', 400);
@@ -98,6 +100,8 @@ export const verifyUserEmail = async (userData: VerifyEmailInput) => {
 
   if (new Date() > tokenData.expiresAt)
     throw new AppError('Code has expired, request another', 400);
+
+  const verifiedAt = new Date();
 
   await db.transaction(async (tx) => {
     const deleted = await tx
@@ -115,8 +119,19 @@ export const verifyUserEmail = async (userData: VerifyEmailInput) => {
 
     await tx
       .update(usersTable)
-      .set({ verifiedAt: new Date() })
+      .set({ verifiedAt })
       .where(eq(usersTable.id, user.id));
+  });
+
+  const sessionToken = generateToken();
+  const hashedSessionToken = hashToken(sessionToken);
+
+  await db.insert(sessionsTable).values({
+    token: hashedSessionToken,
+    userId: user.id,
+    expiresAt: new Date(Date.now() + thirtyDays),
+    ipAddress,
+    userAgent,
   });
 
   try {
@@ -124,6 +139,10 @@ export const verifyUserEmail = async (userData: VerifyEmailInput) => {
   } catch (error) {
     logger.error({ err: error }, 'Failed to send welcome email');
   }
+
+  const updatedUser = { ...user, verifiedAt };
+
+  return { user: updatedUser, sessionToken };
 };
 
 export const resendVerificationCode = async ({
@@ -533,10 +552,7 @@ export const linkGoogleAccount = async ({
   try {
     await sendGoogleAccountLinkedEmail({ email, name });
   } catch (error) {
-    logger.error(
-      { err: error },
-      'Failed to send Google account linked email',
-    );
+    logger.error({ err: error }, 'Failed to send Google account linked email');
   }
 };
 export const getActiveSessions = async (userId: string) => {

@@ -1,4 +1,5 @@
 import express from 'express';
+import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import { pinoHttp } from 'pino-http';
 
@@ -15,6 +16,13 @@ import { globalLimiter } from './middleware/rate-limit.js';
 import { swaggerSpec } from './docs/swagger.js';
 
 const app = express();
+
+app.use(
+  cors({
+    origin: process.env.CLIENT_URL || 'http://localhost:5173',
+    credentials: true,
+  }),
+);
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 app.get('/api-docs.json', (req, res) => {
