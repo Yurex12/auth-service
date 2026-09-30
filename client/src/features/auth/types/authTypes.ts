@@ -1,4 +1,6 @@
-export interface User {
+import type { ApiResponse } from '@/types/apiTypes';
+
+export type User = {
   id: string;
   email: string;
   name: string;
@@ -6,10 +8,23 @@ export interface User {
   verifiedAt: string | null;
   createdAt: string;
   updatedAt: string;
-}
+};
 
-export interface AuthResponse {
-  success: boolean;
-  message: string;
-  user?: User;
-}
+export type AuthResponse = ApiResponse & {
+  user: User;
+};
+
+export type GoogleButtonProps = {
+  onClick?: () => void;
+  disabled?: boolean;
+};
+
+export type VerifyEmailInput = {
+  email: string;
+  code: string;
+};
+
+export type ResendVerificationInput = {
+  email: string;
+};
+

@@ -1,15 +1,16 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
 import { logoutApi } from '../api/authApi';
-import { authKeys } from './authKeys';
 
 export function useLogout() {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: logoutApi,
-    onSuccess: () => {
-      queryClient.setQueryData(authKeys.user(), null);
-      queryClient.invalidateQueries({ queryKey: authKeys.user() });
+    onSuccess: (data) => {
+      queryClient.clear();
+      toast.success(data.message || 'Logged out successfully');
     },
+    onError: (error) => toast.error(error.message || 'Logout failed'),
   });
 }

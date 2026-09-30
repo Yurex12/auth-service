@@ -8,4 +8,14 @@ export const apiClient = axios.create({
   },
 });
 
+apiClient.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    const message = error.response?.data?.message;
+    const err = new Error(message) as Error & { status?: number };
+    err.status = error.response?.status;
+    return Promise.reject(err);
+  },
+);
+
 export default apiClient;

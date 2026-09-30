@@ -1,23 +1,45 @@
 import apiClient from '@/lib/axios';
-import type { LoginInput, SignupInput } from '../schemas/authSchema';
-import type { AuthResponse, User } from '../types/authTypes';
+import type { ApiResponse } from '@/types/apiTypes';
+import type {
+  LoginFormValues,
+  SignupFormValues,
+  ResendVerificationFormValues,
+} from '../schemas/authSchema';
+import type { AuthResponse, VerifyEmailInput } from '../types/authTypes';
 
-export const loginApi = async (data: LoginInput): Promise<AuthResponse> => {
+export async function loginApi(data: LoginFormValues): Promise<AuthResponse> {
   const response = await apiClient.post<AuthResponse>('/auth/login', data);
   return response.data;
-};
+}
 
-export const signupApi = async (data: SignupInput): Promise<AuthResponse> => {
-  const response = await apiClient.post<AuthResponse>('/auth/signup', data);
+export async function signupApi(data: SignupFormValues): Promise<AuthResponse> {
+  const { confirmPassword: _, ...payload } = data;
+  const response = await apiClient.post<AuthResponse>('/auth/signup', payload);
   return response.data;
-};
+}
 
-export const logoutApi = async (): Promise<{ success: boolean; message: string }> => {
-  const response = await apiClient.post<{ success: boolean; message: string }>('/auth/logout');
+export async function verifyEmailApi(data: VerifyEmailInput): Promise<AuthResponse> {
+  const response = await apiClient.post<AuthResponse>('/auth/verify-email', data);
   return response.data;
-};
+}
 
-export const getCurrentUserApi = async (): Promise<{ success: boolean; message: string; user: User }> => {
-  const response = await apiClient.get<{ success: boolean; message: string; user: User }>('/auth/me');
+export async function resendVerificationApi(
+  data: ResendVerificationFormValues,
+): Promise<ApiResponse> {
+  const response = await apiClient.post<ApiResponse>(
+    '/auth/resend-verification',
+    data,
+  );
   return response.data;
-};
+}
+
+export async function logoutApi(): Promise<ApiResponse> {
+  const response = await apiClient.post<ApiResponse>('/auth/logout');
+  return response.data;
+}
+
+export async function getCurrentUserApi(): Promise<AuthResponse> {
+  const response = await apiClient.get<AuthResponse>('/auth/me');
+  return response.data;
+}
+

@@ -1,18 +1,17 @@
 import { z } from 'zod';
 
-export const emailSchema = z
-  .string()
-  .trim()
-  .min(1, 'Email is required')
-  .email('Invalid email address');
+export const emailSchema = z.email('Invalid email address');
 
 export const passwordSchema = z
   .string()
   .min(8, 'Password must be at least 8 characters')
   .max(32, 'Password must not exceed 32 characters')
+  .regex(/[A-Z]/, 'Password must include at least one uppercase letter')
+  .regex(/[a-z]/, 'Password must include at least one lowercase letter')
+  .regex(/[0-9]/, 'Password must include at least one number')
   .regex(
-    /^(?=.*[A-Z])(?=.*[a-z])(?=.*[0-9])(?=.*[^A-Za-z0-9]).{8,32}$/,
-    'Password must include uppercase, lowercase, a number, and a special character'
+    /[^A-Za-z0-9]/,
+    'Password must include at least one special character',
   );
 
 export const loginSchema = z.object({
@@ -20,11 +19,33 @@ export const loginSchema = z.object({
   password: z.string().min(1, 'Password is required'),
 });
 
-export const signupSchema = z.object({
-  name: z.string().trim().min(1, 'Name is required'),
-  email: emailSchema,
-  password: passwordSchema,
+export const signupSchema = z
+  .object({
+    name: z.string().trim().min(1, 'Name is required'),
+    email: emailSchema,
+    password: passwordSchema,
+    confirmPassword: z.string().min(1, 'Please confirm your password'),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: 'Passwords do not match',
+    path: ['confirmPassword'],
+  });
+
+export const codeSchema = z
+  .string()
+  .regex(/^\d{6}$/, 'Code must be exactly 6 digits');
+
+export const verifyEmailSchema = z.object({
+  code: codeSchema,
 });
 
-export type LoginInput = z.infer<typeof loginSchema>;
-export type SignupInput = z.infer<typeof signupSchema>;
+export const resendVerificationSchema = z.object({
+  email: emailSchema,
+});
+
+export type LoginFormValues = z.infer<typeof loginSchema>;
+export type SignupFormValues = z.infer<typeof signupSchema>;
+export type VerifyEmailFormValues = z.infer<typeof verifyEmailSchema>;
+export type ResendVerificationFormValues = z.infer<
+  typeof resendVerificationSchema
+>;

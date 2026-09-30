@@ -6,7 +6,11 @@ export function useCurrentUser() {
   return useQuery({
     queryKey: authKeys.user(),
     queryFn: getCurrentUserApi,
-    retry: false,
+    retry: (failureCount, error: any) => {
+      if (error?.status === 401) return false;
+
+      return failureCount < 2;
+    },
     staleTime: 1000 * 60 * 5,
   });
 }
