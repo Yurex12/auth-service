@@ -4,8 +4,14 @@ import type {
   LoginFormValues,
   SignupFormValues,
   ResendVerificationFormValues,
+  RequestPasswordResetFormValues,
 } from '../schemas/authSchema';
-import type { AuthResponse, VerifyEmailInput } from '../types/authTypes';
+import type {
+  AuthResponse,
+  VerifyEmailInput,
+  VerifyPasswordResetCodeInput,
+  ResetPasswordInput,
+} from '../types/authTypes';
 
 export async function loginApi(data: LoginFormValues): Promise<AuthResponse> {
   const response = await apiClient.post<AuthResponse>('/auth/login', data);
@@ -28,6 +34,36 @@ export async function resendVerificationApi(
 ): Promise<ApiResponse> {
   const response = await apiClient.post<ApiResponse>(
     '/auth/resend-verification',
+    data,
+  );
+  return response.data;
+}
+
+export async function requestPasswordResetApi(
+  data: RequestPasswordResetFormValues,
+): Promise<ApiResponse> {
+  const response = await apiClient.post<ApiResponse>(
+    '/auth/password-reset',
+    data,
+  );
+  return response.data;
+}
+
+export async function verifyPasswordResetCodeApi(
+  data: VerifyPasswordResetCodeInput,
+): Promise<ApiResponse> {
+  const response = await apiClient.post<ApiResponse>(
+    '/auth/password-reset/verify',
+    data,
+  );
+  return response.data;
+}
+
+export async function resetPasswordApi(
+  data: ResetPasswordInput,
+): Promise<ApiResponse> {
+  const response = await apiClient.post<ApiResponse>(
+    '/auth/password-reset/confirm',
     data,
   );
   return response.data;

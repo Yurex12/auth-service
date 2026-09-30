@@ -28,3 +28,12 @@ export type ResendVerificationInput = {
   email: string;
 };
 
+export type VerifyPasswordResetCodeInput = {
+  email: string;
+  code: string;
+};
+
+export type ResetPasswordInput = {
+  password: string;
+};
+
