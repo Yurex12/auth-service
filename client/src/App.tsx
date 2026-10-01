@@ -1,5 +1,7 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { Toaster } from '@/components/ui/sonner';
+import { AppLayout } from './components/AppLayout';
+import { ProtectedRoute } from './components/ProtectedRoute';
 import { HomePage } from './pages/HomePage';
 import { LoginPage } from './pages/LoginPage';
 import { SignupPage } from './pages/SignupPage';
@@ -7,6 +9,9 @@ import { VerifyEmailPage } from './pages/VerifyEmailPage';
 import { ForgotPasswordPage } from './pages/ForgotPasswordPage';
 import { VerifyResetCodePage } from './pages/VerifyResetCodePage';
 import { ResetPasswordPage } from './pages/ResetPasswordPage';
+import { LinkAccountPage } from './pages/LinkAccountPage';
+import { SecuritySettingsPage } from './pages/SecuritySettingsPage';
+import { ConfirmLinkPage } from './pages/ConfirmLinkPage';
 import { NotFoundPage } from './pages/NotFoundPage';
 
 function App() {
@@ -14,9 +19,23 @@ function App() {
     <BrowserRouter>
       <Toaster position='top-center' />
       <Routes>
-        <Route path='/' element={<HomePage />} />
+        {/*  Protected Routes */}
+        <Route
+          element={
+            <ProtectedRoute>
+              <AppLayout />
+            </ProtectedRoute>
+          }
+        >
+          <Route path='/' element={<HomePage />} />
+          <Route path='/settings/security' element={<SecuritySettingsPage />} />
+          <Route path='/link-account' element={<SecuritySettingsPage />} />
+        </Route>
+
+        {/* Public Auth Routes */}
         <Route path='/login' element={<LoginPage />} />
         <Route path='/signup' element={<SignupPage />} />
+        <Route path='/confirm-link' element={<ConfirmLinkPage />} />
         <Route path='/verify-email' element={<VerifyEmailPage />} />
         <Route path='/forgot-password' element={<ForgotPasswordPage />} />
         <Route
@@ -29,6 +48,5 @@ function App() {
     </BrowserRouter>
   );
 }
-
 
 export default App;

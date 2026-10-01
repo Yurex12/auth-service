@@ -8,6 +8,7 @@ import type {
 } from '../schemas/authSchema';
 import type {
   AuthResponse,
+  UserAccountsResponse,
   VerifyEmailInput,
   VerifyPasswordResetCodeInput,
   ResetPasswordInput,
@@ -24,8 +25,13 @@ export async function signupApi(data: SignupFormValues): Promise<AuthResponse> {
   return response.data;
 }
 
-export async function verifyEmailApi(data: VerifyEmailInput): Promise<AuthResponse> {
-  const response = await apiClient.post<AuthResponse>('/auth/verify-email', data);
+export async function verifyEmailApi(
+  data: VerifyEmailInput,
+): Promise<AuthResponse> {
+  const response = await apiClient.post<AuthResponse>(
+    '/auth/verify-email',
+    data,
+  );
   return response.data;
 }
 
@@ -78,4 +84,25 @@ export async function getCurrentUserApi(): Promise<AuthResponse> {
   const response = await apiClient.get<AuthResponse>('/auth/me');
   return response.data;
 }
+
+export async function confirmGoogleLinkApi(): Promise<ApiResponse> {
+  const response = await apiClient.post<ApiResponse>('/auth/google/link');
+  return response.data;
+}
+
+export async function cancelGoogleLinkApi(): Promise<ApiResponse> {
+  const response = await apiClient.post<ApiResponse>('/auth/google/link/cancel');
+  return response.data;
+}
+
+export async function getUserAccountsApi(): Promise<UserAccountsResponse> {
+  const response = await apiClient.get<UserAccountsResponse>('/auth/accounts');
+  return response.data;
+}
+
+export async function unlinkGoogleAccountApi(): Promise<ApiResponse> {
+  const response = await apiClient.delete<ApiResponse>('/auth/google/unlink');
+  return response.data;
+}
+
 

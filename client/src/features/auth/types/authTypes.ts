@@ -5,9 +5,23 @@ export type User = {
   email: string;
   name: string;
   roleId: string;
+  role: {
+    id: string;
+    name: string;
+  };
   verifiedAt: string | null;
   createdAt: string;
   updatedAt: string;
+};
+
+export type UserAccount = {
+  id: string;
+  providerId: string;
+  createdAt: string;
+};
+
+export type UserAccountsResponse = ApiResponse & {
+  accounts: UserAccount[];
 };
 
 export type AuthResponse = ApiResponse & {
@@ -15,7 +29,6 @@ export type AuthResponse = ApiResponse & {
 };
 
 export type GoogleButtonProps = {
-  onClick?: () => void;
   disabled?: boolean;
 };
 
