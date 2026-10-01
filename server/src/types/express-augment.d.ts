@@ -10,6 +10,7 @@ declare global {
         updatedAt: Date;
         roleId: string;
         role: {
+          id: string;
           name: string;
         };
       };

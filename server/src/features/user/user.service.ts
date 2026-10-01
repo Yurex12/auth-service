@@ -3,6 +3,7 @@ import { db } from '../../db/index.js';
 import { usersTable } from '../../db/schema.js';
 import { AppError } from '../../utils/app-error.js';
 import { usersPerPage } from './user.constant.js';
+import { findUserById } from './user.repository.js';
 import type { UpdateUserInput, UpdateUserRoleInput } from './user.schema.js';
 
 export const getUsers = async (data: {
@@ -43,17 +44,7 @@ export const getUsers = async (data: {
 };
 
 export const getUserById = async (targetUserId: string) => {
-  const user = await db.query.usersTable.findFirst({
-    where: (user, { eq }) => eq(user.id, targetUserId),
-    with: {
-      role: {
-        columns: {
-          id: true,
-          name: true,
-        },
-      },
-    },
-  });
+  const user = await findUserById(targetUserId);
 
   if (!user) throw new AppError('User not found', 404);
 
@@ -82,17 +73,7 @@ export const updateUser = async ({
 
   if (!updatedUser) throw new AppError('User not found', 404);
 
-  const userWithRole = await db.query.usersTable.findFirst({
-    where: (user, { eq }) => eq(user.id, targetUserId),
-    with: {
-      role: {
-        columns: {
-          id: true,
-          name: true,
-        },
-      },
-    },
-  });
+  const userWithRole = await findUserById(targetUserId);
 
   return { user: userWithRole! };
 };
