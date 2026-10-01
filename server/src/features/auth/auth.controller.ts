@@ -19,6 +19,7 @@ import {
   changePassword as changePasswordService,
   createUser,
   getActiveSessions,
+  getUserAccounts as getUserAccountsService,
   linkGoogleAccount as linkGoogleAccountService,
   loginUser,
   logoutUser,
@@ -28,6 +29,7 @@ import {
   revokeSession as revokeSessionService,
   revokeOtherSessions as revokeOtherSessionsService,
   revokeAllSessions as revokeAllSessionsService,
+  unlinkGoogleAccount as unlinkGoogleAccountService,
   verifyPasswordResetCode as verifyPasswordResetCodeService,
   verifyUserEmail,
 } from './auth.service.js';
@@ -228,6 +230,7 @@ export const googleLogin = async (req: Request, res: Response) => {
     response_type: 'code',
     scope: 'openid email profile',
     state,
+    prompt: 'consent',
   });
 
   const googleAuthUrl = `https://accounts.google.com/o/oauth2/v2/auth?${params}`;
@@ -239,69 +242,91 @@ export const googleCallback = async (
   req: TypedRequest<unknown, unknown, GoogleCallbackQuery>,
   res: Response,
 ) => {
-  const cookieState = req.cookies.google_oauth_state;
+  try {
+    const cookieState = req.cookies.google_oauth_state;
 
-  const userAgent = req.get('user-agent');
-  const ipAddress = req.ip;
+    const userAgent = req.get('user-agent');
+    const ipAddress = req.ip;
 
-  const urlState = req.query.state;
-  const code = req.query.code;
+    const urlState = req.query.state;
+    const code = req.query.code;
+    const error = req.query.error;
 
-  if (cookieState !== urlState) throw new AppError('Invalid OAuth state', 400);
+    if (cookieState !== urlState)
+      throw new AppError('Invalid OAuth state', 400);
 
-  if (!code) throw new AppError('OAuth code is required', 400);
+    res.clearCookie('google_oauth_state');
 
-  res.clearCookie('google_oauth_state');
+    if (error) {
+      const message =
+        error === 'access_denied'
+          ? 'Google sign-in was cancelled'
+          : 'Google authentication failed';
+      return res.redirect(
+        `${process.env.CLIENT_URL}/login?error=${encodeURIComponent(message)}`,
+      );
+    }
 
-  const { id_token } = await exchangeGoogleCode(
-    code,
-    process.env.GOOGLE_REDIRECT_URI!,
-  );
+    if (!code) throw new AppError('OAuth code is required', 400);
 
-  const ticket = await verifyGoogleIdToken(id_token);
-
-  const payload = ticket.getPayload();
-
-  if (!payload?.sub || !payload?.email || !payload?.email_verified)
-    throw new AppError('Invalid Google account information', 400);
-
-  const { sessionToken, userId } = await authenticateWithGoogle(
-    {
-      accountId: payload.sub,
-      email: payload.email,
-      name: payload.name,
-    },
-    { ipAddress, userAgent },
-  );
-
-  if (!sessionToken && userId) {
-    const token = createOAuthLinkToken({
-      accountId: payload.sub,
-      expiresAt: Date.now() + tenMinutes,
-      userId,
-    });
-
-    res.cookie('google_link_token', token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: tenMinutes,
-    });
-
-    res.redirect(
-      `${process.env.CLIENT_URL}/login?google=account-link-required`,
+    const { id_token } = await exchangeGoogleCode(
+      code,
+      process.env.GOOGLE_REDIRECT_URI!,
     );
-  } else if (sessionToken) {
-    res.cookie('session', sessionToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: thirtyDays,
-    });
 
-    res.redirect(`${process.env.CLIENT_URL}/login?google=success`);
-  } else {
-    throw new AppError('Google authentication failed', 400);
+    const ticket = await verifyGoogleIdToken(id_token);
+
+    const payload = ticket.getPayload();
+
+    if (!payload?.sub || !payload?.email || !payload?.email_verified)
+      throw new AppError('Invalid Google account information', 400);
+
+    const { sessionToken, userId } = await authenticateWithGoogle(
+      {
+        accountId: payload.sub,
+        email: payload.email,
+        name: payload.name,
+      },
+      { ipAddress, userAgent },
+    );
+
+    if (!sessionToken && userId) {
+      const token = createOAuthLinkToken({
+        accountId: payload.sub,
+        expiresAt: Date.now() + tenMinutes,
+        userId,
+      });
+
+      res.cookie('google_link_token', token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: tenMinutes,
+      });
+
+      return res.redirect(
+        `${process.env.CLIENT_URL}/confirm-link?email=${encodeURIComponent(payload.email)}`,
+      );
+    } else if (sessionToken) {
+      res.cookie('session', sessionToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: thirtyDays,
+      });
+
+      return res.redirect(`${process.env.CLIENT_URL}/`);
+    } else {
+      throw new AppError('Google authentication failed', 400);
+    }
+  } catch (error) {
+    const message =
+      error instanceof AppError
+        ? error.message
+        : 'Google authentication failed';
+    return res.redirect(
+      `${process.env.CLIENT_URL}/login?error=${encodeURIComponent(message)}`,
+    );
   }
 };
 
@@ -312,14 +337,22 @@ export const linkGoogleAccount = async (req: Request, res: Response) => {
     throw new AppError('Google link token is required', 400);
 
   const { accountId, userId } = verifyOAuthLinkToken(googleLinkToken);
+  const userAgent = req.get('user-agent');
+  const ipAddress = req.ip;
 
-  if (req.userId !== userId) throw new AppError('Invalid operation', 400);
+  const { sessionToken } = await linkGoogleAccountService(
+    {
+      accountId,
+      userId,
+    },
+    { userAgent, ipAddress },
+  );
 
-  await linkGoogleAccountService({
-    accountId,
-    userId: req.userId,
-    email: req.user.email,
-    name: req.user.name,
+  res.cookie('session', sessionToken, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    maxAge: thirtyDays,
   });
 
   res.clearCookie('google_link_token');
@@ -327,6 +360,15 @@ export const linkGoogleAccount = async (req: Request, res: Response) => {
   res.json({
     success: true,
     message: 'Google Account linked successfully',
+  });
+};
+
+export const cancelGoogleLink = async (req: Request, res: Response) => {
+  res.clearCookie('google_link_token');
+
+  res.json({
+    success: true,
+    message: 'Google account linking cancelled',
   });
 };
 
@@ -358,44 +400,68 @@ export const googleLinkCallback = async (
   req: TypedRequest<unknown, unknown, GoogleCallbackQuery>,
   res: Response,
 ) => {
-  const cookieState = req.cookies.google_link_oauth_state;
+  try {
+    const cookieState = req.cookies.google_link_oauth_state;
 
-  const urlState = req.query.state;
-  const code = req.query.code;
+    const urlState = req.query.state;
+    const code = req.query.code;
+    const error = req.query.error;
 
-  if (cookieState !== urlState) throw new AppError('Invalid OAuth state', 400);
+    const userAgent = req.get('user-agent');
+    const ipAddress = req.ip;
 
-  if (!code) throw new AppError('OAuth code is required', 400);
+    if (cookieState !== urlState) throw new AppError('Invalid OAuth state', 400);
 
-  res.clearCookie('google_link_oauth_state');
+    res.clearCookie('google_link_oauth_state');
 
-  const { id_token } = await exchangeGoogleCode(
-    code,
-    process.env.GOOGLE_LINK_REDIRECT_URI!,
-  );
+    if (error) {
+      const message =
+        error === 'access_denied'
+          ? 'Google account linking was cancelled'
+          : 'Google account linking failed';
+      return res.redirect(
+        `${process.env.CLIENT_URL}/settings/security?error=${encodeURIComponent(message)}`,
+      );
+    }
 
-  const ticket = await verifyGoogleIdToken(id_token);
+    if (!code) throw new AppError('OAuth code is required', 400);
 
-  const payload = ticket.getPayload();
+    const { id_token } = await exchangeGoogleCode(
+      code,
+      process.env.GOOGLE_LINK_REDIRECT_URI!,
+    );
 
-  if (!payload?.sub || !payload?.email || !payload?.email_verified)
-    throw new AppError('Invalid Google account information', 400);
+    const ticket = await verifyGoogleIdToken(id_token);
 
-  if (payload.email !== req.user.email) {
-    throw new AppError(
-      'Google account email does not match signed-in user',
-      400,
+    const payload = ticket.getPayload();
+
+    if (!payload?.sub || !payload?.email || !payload?.email_verified)
+      throw new AppError('Invalid Google account information', 400);
+
+    if (payload.email !== req.user.email) {
+      return res.redirect(
+        `${process.env.CLIENT_URL}/settings/security?error=${encodeURIComponent('Google account email does not match your signed-in email')}`,
+      );
+    }
+
+    await linkGoogleAccountService(
+      {
+        accountId: payload.sub,
+        userId: req.userId,
+      },
+      { ipAddress, userAgent },
+    );
+
+    return res.redirect(`${process.env.CLIENT_URL}/settings/security?google=linked`);
+  } catch (error) {
+    const message =
+      error instanceof AppError
+        ? error.message
+        : 'Google account linking failed';
+    return res.redirect(
+      `${process.env.CLIENT_URL}/settings/security?error=${encodeURIComponent(message)}`,
     );
   }
-
-  await linkGoogleAccountService({
-    accountId: payload.sub,
-    userId: req.userId,
-    email: payload.email,
-    name: payload.name || 'user',
-  });
-
-  res.redirect(`${process.env.CLIENT_URL}/settings?google=linked`);
 };
 
 export const getSessions = async (req: Request, res: Response) => {
@@ -447,3 +513,24 @@ export const revokeAllSessions = async (req: Request, res: Response) => {
     message: 'Successful',
   });
 };
+
+export const getUserAccounts = async (req: Request, res: Response) => {
+  const { accounts } = await getUserAccountsService(req.userId);
+
+  res.json({
+    success: true,
+    message: 'User accounts fetched successfully',
+    accounts,
+  });
+};
+
+export const unlinkGoogleAccount = async (req: Request, res: Response) => {
+  await unlinkGoogleAccountService(req.userId);
+
+  res.json({
+    success: true,
+    message: 'Google account unlinked successfully',
+  });
+};
+
+

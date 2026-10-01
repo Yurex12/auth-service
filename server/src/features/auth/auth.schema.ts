@@ -52,8 +52,10 @@ export const verifyPasswordResetCodeSchema = z.object({
 });
 
 export const googleCallbackSchema = z.object({
-  code: z.string().min(1, 'Code is required'),
   state: z.string().min(1, 'State is required'),
+  code: z.string().optional(),
+  error: z.string().optional(),
+  error_description: z.string().optional(),
 });
 export const idParamsSchema = z.object({
   id: z.uuid().min(1, 'Id is required'),

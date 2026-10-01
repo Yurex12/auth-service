@@ -22,7 +22,10 @@ export async function exchangeGoogleCode(code: string, redirectURI: string) {
     return data;
   } catch (error) {
     if (axios.isAxiosError(error)) {
-      logger.error({ data: error.response?.data }, 'Google token exchange failed');
+      logger.error(
+        { data: error.response?.data },
+        'Google token exchange failed',
+      );
     } else {
       logger.error({ err: error }, 'Google token exchange failed');
     }

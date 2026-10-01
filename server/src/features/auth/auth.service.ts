@@ -29,6 +29,7 @@ import type {
 import argon from 'argon2';
 import type { LoginMetadata } from './auth.types.js';
 import { logger } from '../../utils/logger.js';
+import { findUserByEmail } from '../user/user.repository.js';
 
 export const createUser = async (userData: SignupInput) => {
   const { name, email, password } = userData;
@@ -69,7 +70,15 @@ export const createUser = async (userData: SignupInput) => {
       expiresAt: new Date(Date.now() + fifteenMinutes),
     });
 
-    return { user };
+    const userWithRole = {
+      ...user,
+      role: {
+        id: userRole.id,
+        name: userRole.name,
+      },
+    };
+
+    return { user: userWithRole };
   });
 
   await sendVerificationEmail({ email, code, name });
@@ -83,9 +92,7 @@ export const verifyUserEmail = async (
 ) => {
   const hashedCode = hashToken(userData.code);
 
-  const user = await db.query.usersTable.findFirst({
-    where: (user, { eq }) => eq(user.email, userData.email),
-  });
+  const user = await findUserByEmail(userData.email);
 
   if (!user) throw new AppError('Invalid code', 400);
 
@@ -148,9 +155,7 @@ export const verifyUserEmail = async (
 export const resendVerificationCode = async ({
   email,
 }: ResendVerificationInput) => {
-  const user = await db.query.usersTable.findFirst({
-    where: (user, { eq }) => eq(user.email, email),
-  });
+  const user = await findUserByEmail(email);
 
   if (!user) return;
 
@@ -180,9 +185,7 @@ export const loginUser = async (
   { email, password }: LoginInput,
   { ipAddress, userAgent }: LoginMetadata,
 ) => {
-  const user = await db.query.usersTable.findFirst({
-    where: (user, { eq }) => eq(user.email, email),
-  });
+  const user = await findUserByEmail(email);
 
   if (!user) throw new AppError('Incorrect Email or password', 400);
 
@@ -517,17 +520,16 @@ export const authenticateWithGoogle = async (
   }
 };
 
-export const linkGoogleAccount = async ({
-  userId,
-  accountId,
-  name,
-  email,
-}: {
-  accountId: string;
-  userId: string;
-  email: string;
-  name: string;
-}) => {
+export const linkGoogleAccount = async (
+  {
+    userId,
+    accountId,
+  }: {
+    accountId: string;
+    userId: string;
+  },
+  { ipAddress, userAgent }: LoginMetadata,
+) => {
   const existingAccount = await db.query.accountsTable.findFirst({
     where: (account, { and, eq }) =>
       and(eq(account.providerId, 'google'), eq(account.accountId, accountId)),
@@ -543,17 +545,36 @@ export const linkGoogleAccount = async ({
   if (existingGoogleAccount)
     throw new AppError('User already has a Google account linked', 409);
 
+  const user = await db.query.usersTable.findFirst({
+    where: (user, { eq }) => eq(user.id, userId),
+  });
+
+  if (!user) throw new AppError('User not found', 404);
+
   await db.insert(accountsTable).values({
     accountId,
     providerId: 'google',
     userId,
   });
 
+  const sessionToken = generateToken();
+  const hashedSessionToken = hashToken(sessionToken);
+
+  await db.insert(sessionsTable).values({
+    token: hashedSessionToken,
+    userId: user.id,
+    expiresAt: new Date(Date.now() + thirtyDays),
+    ipAddress,
+    userAgent,
+  });
+
   try {
-    await sendGoogleAccountLinkedEmail({ email, name });
+    await sendGoogleAccountLinkedEmail({ email: user.email, name: user.name });
   } catch (error) {
     logger.error({ err: error }, 'Failed to send Google account linked email');
   }
+
+  return { user, sessionToken };
 };
 export const getActiveSessions = async (userId: string) => {
   const sessions = await db.query.sessionsTable.findMany({
@@ -592,3 +613,46 @@ export const revokeAllSessions = async (userId: string) => {
     .delete(sessionsTable)
     .where(eq(sessionsTable.userId, userId));
 };
+
+export const getUserAccounts = async (userId: string) => {
+  const accounts = await db.query.accountsTable.findMany({
+    where: (account, { eq }) => eq(account.userId, userId),
+    columns: {
+      id: true,
+      providerId: true,
+      createdAt: true,
+    },
+  });
+
+  return { accounts };
+};
+
+export const unlinkGoogleAccount = async (userId: string) => {
+  const credentialAccount = await db.query.accountsTable.findFirst({
+    where: (account, { and, eq }) =>
+      and(eq(account.userId, userId), eq(account.providerId, 'credential')),
+  });
+
+  if (!credentialAccount) {
+    throw new AppError(
+      'Cannot unlink Google account without a password set up',
+      400,
+    );
+  }
+
+  const deletedAccount = await db
+    .delete(accountsTable)
+    .where(
+      and(
+        eq(accountsTable.userId, userId),
+        eq(accountsTable.providerId, 'google'),
+      ),
+    )
+    .returning({ id: accountsTable.id });
+
+  if (deletedAccount.length === 0) {
+    throw new AppError('Google account is not linked', 400);
+  }
+};
+
+

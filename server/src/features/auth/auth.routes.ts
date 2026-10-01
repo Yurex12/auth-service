@@ -15,8 +15,10 @@ import {
   changePassword,
   getCurrentUser,
   getSessions,
+  getUserAccounts,
   googleCallback,
   googleLinkCallback,
+  cancelGoogleLink,
   googleLogin,
   linkGoogleAccount,
   login,
@@ -29,6 +31,7 @@ import {
   revokeSession,
   signup,
   startGoogleLink,
+  unlinkGoogleAccount,
   verifyEmail,
   verifyPasswordResetCode,
 } from './auth.controller.js';
@@ -442,7 +445,39 @@ router.get(
  *       401:
  *         description: Unauthorized
  */
-router.post('/google/link', requireAuth, linkGoogleAccount);
+router.post('/google/link', linkGoogleAccount);
+
+/**
+ * @swagger
+ * /auth/google/link/cancel:
+ *   post:
+ *     summary: Cancel Google account linking
+ *     description: Clears the pending Google link token cookie when the user cancels linking
+ *     tags: [OAuth]
+ *     responses:
+ *       200:
+ *         description: Google account linking cancelled successfully
+ */
+router.post('/google/link/cancel', cancelGoogleLink);
+
+/**
+ * @swagger
+ * /auth/google/unlink:
+ *   delete:
+ *     summary: Unlink Google account
+ *     description: Unlinks and removes the connected Google authentication provider
+ *     tags: [OAuth]
+ *     security:
+ *       - cookieAuth: []
+ *     responses:
+ *       200:
+ *         description: Google account unlinked successfully
+ *       400:
+ *         description: Cannot unlink Google without password set up or not linked
+ *       401:
+ *         description: Unauthorized
+ */
+router.delete('/google/unlink', requireAuth, unlinkGoogleAccount);
 
 /**
  * @swagger
@@ -495,6 +530,23 @@ router.get(
   validateRequestQuery(googleCallbackSchema),
   googleLinkCallback,
 );
+
+/**
+ * @swagger
+ * /auth/accounts:
+ *   get:
+ *     summary: Get linked user accounts
+ *     description: Retrieves all connected authentication providers for the current user
+ *     tags: [OAuth]
+ *     security:
+ *       - cookieAuth: []
+ *     responses:
+ *       200:
+ *         description: Accounts retrieved successfully
+ *       401:
+ *         description: Unauthorized
+ */
+router.get('/accounts', requireAuth, getUserAccounts);
 
 /**
  * @swagger
