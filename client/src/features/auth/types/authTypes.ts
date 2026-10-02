@@ -50,3 +50,29 @@ export type ResetPasswordInput = {
   password: string;
 };
 
+export type VerifySetPasswordCodeInput = {
+  code: string;
+};
+
+export type SetPasswordInput = {
+  password: string;
+};
+
+export type ChangePasswordInput = {
+  currentPassword: string;
+  newPassword: string;
+};
+
+export type SessionItem = {
+  id: string;
+  ipAddress: string | null;
+  userAgent: string | null;
+  createdAt: string;
+  expiresAt: string;
+  currentSession: boolean;
+};
+
+export type SessionsResponse = ApiResponse & {
+  sessions: SessionItem[];
+};
+

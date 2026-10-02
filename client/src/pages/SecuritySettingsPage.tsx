@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { ArrowLeft, Shield } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { ConnectedAccountsCard } from '@/features/auth';
+import { ConnectedAccountsCard, ActiveSessionsCard } from '@/features/auth';
 
 export function SecuritySettingsPage() {
   return (
@@ -32,6 +32,7 @@ export function SecuritySettingsPage() {
 
       <div className='space-y-6'>
         <ConnectedAccountsCard />
+        <ActiveSessionsCard />
       </div>
     </div>
   );

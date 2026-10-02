@@ -12,6 +12,10 @@ import type {
   VerifyEmailInput,
   VerifyPasswordResetCodeInput,
   ResetPasswordInput,
+  SetPasswordInput,
+  VerifySetPasswordCodeInput,
+  ChangePasswordInput,
+  SessionsResponse,
 } from '../types/authTypes';
 
 export async function loginApi(data: LoginFormValues): Promise<AuthResponse> {
@@ -102,6 +106,63 @@ export async function getUserAccountsApi(): Promise<UserAccountsResponse> {
 
 export async function unlinkGoogleAccountApi(): Promise<ApiResponse> {
   const response = await apiClient.delete<ApiResponse>('/auth/google/unlink');
+  return response.data;
+}
+
+export async function requestSetPasswordApi(): Promise<ApiResponse> {
+  const response = await apiClient.post<ApiResponse>(
+    '/auth/set-password/request',
+  );
+  return response.data;
+}
+
+export async function verifySetPasswordCodeApi(
+  data: VerifySetPasswordCodeInput,
+): Promise<ApiResponse> {
+  const response = await apiClient.post<ApiResponse>(
+    '/auth/set-password/verify',
+    data,
+  );
+  return response.data;
+}
+
+export async function setPasswordApi(
+  data: SetPasswordInput,
+): Promise<ApiResponse> {
+  const response = await apiClient.post<ApiResponse>(
+    '/auth/set-password',
+    data,
+  );
+  return response.data;
+}
+
+export async function changePasswordApi(
+  data: ChangePasswordInput,
+): Promise<ApiResponse> {
+  const response = await apiClient.post<ApiResponse>(
+    '/auth/change-password',
+    data,
+  );
+  return response.data;
+}
+
+export async function getSessionsApi(): Promise<SessionsResponse> {
+  const response = await apiClient.get<SessionsResponse>('/auth/sessions');
+  return response.data;
+}
+
+export async function revokeSessionApi(id: string): Promise<ApiResponse> {
+  const response = await apiClient.delete<ApiResponse>(`/auth/sessions/${id}`);
+  return response.data;
+}
+
+export async function revokeOtherSessionsApi(): Promise<ApiResponse> {
+  const response = await apiClient.delete<ApiResponse>('/auth/sessions/others');
+  return response.data;
+}
+
+export async function revokeAllSessionsApi(): Promise<ApiResponse> {
+  const response = await apiClient.delete<ApiResponse>('/auth/sessions');
   return response.data;
 }
 
