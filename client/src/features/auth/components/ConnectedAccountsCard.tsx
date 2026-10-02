@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate, Link } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import {
@@ -18,27 +18,19 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from '@/components/ui/alert-dialog';
+import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { GoogleIcon } from './GoogleIcon';
 import { useCurrentUser } from '../hooks/useCurrentUser';
 import { useUserAccounts } from '../hooks/useUserAccounts';
 import { useUnlinkGoogle } from '../hooks/useUnlinkGoogle';
+import { useRequestSetPassword } from '../hooks/useRequestSetPassword';
 import { authKeys } from '../hooks/authKeys';
 import { LoadingState } from '@/components/LoadingState';
 import { ErrorState } from '@/components/ErrorState';
 
 export function ConnectedAccountsCard() {
   const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { data: userData } = useCurrentUser();
   const {
@@ -49,6 +41,8 @@ export function ConnectedAccountsCard() {
     refetch,
   } = useUserAccounts();
   const { mutate: unlinkGoogle, isPending: isUnlinking } = useUnlinkGoogle();
+  const { mutate: requestSetPassword, isPending: isRequestingSetPassword } =
+    useRequestSetPassword();
   const [isRedirecting, setIsRedirecting] = useState(false);
 
   useEffect(() => {
@@ -74,6 +68,16 @@ export function ConnectedAccountsCard() {
   function handleConnectGoogle() {
     setIsRedirecting(true);
     window.location.href = `${import.meta.env.VITE_BACKEND_URL}/api/auth/google/link`;
+  }
+
+  function handleStartSetPassword() {
+    requestSetPassword(undefined, {
+      onSuccess: () => {
+        navigate('/set-password/verify', {
+          state: { requested: true },
+        });
+      },
+    });
   }
 
   if (isPending) {
@@ -106,9 +110,7 @@ export function ConnectedAccountsCard() {
         <CardContent>
           <ErrorState
             title='Could not load connected accounts'
-            message={
-              error instanceof Error ? error.message : 'Please try again.'
-            }
+            message={error.message}
             onRetry={() => refetch()}
           />
         </CardContent>
@@ -186,8 +188,13 @@ export function ConnectedAccountsCard() {
                   </span>
 
                   {isCredentialLinked && (
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
+                    <ConfirmDialog
+                      title='Disconnect Google Account?'
+                      description='Are you sure you want to disconnect your Google account? You will still be able to sign in using your email and password.'
+                      confirmText='Disconnect Google'
+                      variant='destructive'
+                      onConfirm={() => unlinkGoogle()}
+                      trigger={
                         <Button
                           size='sm'
                           variant='outline'
@@ -201,29 +208,8 @@ export function ConnectedAccountsCard() {
                           )}
                           <span>Disconnect</span>
                         </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>
-                            Disconnect Google Account?
-                          </AlertDialogTitle>
-                          <AlertDialogDescription>
-                            Are you sure you want to disconnect your Google
-                            account? You will still be able to sign in using
-                            your email and password.
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>Cancel</AlertDialogCancel>
-                          <AlertDialogAction
-                            onClick={() => unlinkGoogle()}
-                            className='bg-destructive text-white hover:bg-destructive/90 shadow-sm'
-                          >
-                            Disconnect Google
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
+                      }
+                    />
                   )}
                 </>
               ) : (
@@ -265,17 +251,41 @@ export function ConnectedAccountsCard() {
               </div>
             </div>
 
-            <div>
+            <div className='flex items-center gap-2'>
               {isCredentialLinked ? (
-                <span className='inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-600 dark:text-emerald-400'>
-                  <CheckCircle2 className='size-3.5' />
-                  Active
-                </span>
+                <>
+                  <span className='inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-600 dark:text-emerald-400'>
+                    <CheckCircle2 className='size-3.5' />
+                    Active
+                  </span>
+
+                  <Button
+                    size='sm'
+                    variant='outline'
+                    asChild
+                    className='gap-1.5 text-xs'
+                  >
+                    <Link to='/change-password'>
+                      <KeyRound className='size-3.5' />
+                      <span>Change Password</span>
+                    </Link>
+                  </Button>
+                </>
               ) : (
-                <span className='inline-flex items-center gap-1.5 rounded-full bg-muted px-3 py-1 text-xs font-medium text-muted-foreground'>
-                  <ShieldAlert className='size-3.5' />
-                  None
-                </span>
+                <Button
+                  size='sm'
+                  variant='outline'
+                  onClick={handleStartSetPassword}
+                  disabled={isRequestingSetPassword}
+                  className='gap-1.5 text-xs'
+                >
+                  {isRequestingSetPassword ? (
+                    <Loader2 className='size-3.5 animate-spin' />
+                  ) : (
+                    <KeyRound className='size-3.5' />
+                  )}
+                  <span>Set Password</span>
+                </Button>
               )}
             </div>
           </div>
