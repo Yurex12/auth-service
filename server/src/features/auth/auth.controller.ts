@@ -10,8 +10,10 @@ import type {
   RequestPasswordResetInput,
   ResendVerificationInput,
   ResetPasswordInput,
+  SetPasswordInput,
   SignupInput,
   VerifyEmailInput,
+  VerifySetPasswordCodeInput,
 } from './auth.schema.js';
 
 import {
@@ -24,13 +26,16 @@ import {
   loginUser,
   logoutUser,
   requestPasswordReset as requestPasswordResetService,
+  requestSetPassword as requestSetPasswordService,
   resendVerificationCode,
   resetPassword as resetPasswordService,
   revokeSession as revokeSessionService,
   revokeOtherSessions as revokeOtherSessionsService,
   revokeAllSessions as revokeAllSessionsService,
+  setPassword as setPasswordService,
   unlinkGoogleAccount as unlinkGoogleAccountService,
   verifyPasswordResetCode as verifyPasswordResetCodeService,
+  verifySetPasswordCode as verifySetPasswordCodeService,
   verifyUserEmail,
 } from './auth.service.js';
 
@@ -200,7 +205,10 @@ export const resetPassword = async (
   if (!resetToken)
     throw new AppError('Invalid or expired password reset session', 400);
 
-  await resetPasswordService({ resetToken, password: req.body.password });
+  const { hasCredentialAccount } = await resetPasswordService({
+    resetToken,
+    password: req.body.password,
+  });
 
   res.clearCookie('resetToken', {
     httpOnly: true,
@@ -210,7 +218,9 @@ export const resetPassword = async (
 
   res.json({
     success: true,
-    message: 'Password reset successful',
+    message: hasCredentialAccount
+      ? 'Password reset successful'
+      : 'Password set successfully',
   });
 };
 
@@ -410,7 +420,8 @@ export const googleLinkCallback = async (
     const userAgent = req.get('user-agent');
     const ipAddress = req.ip;
 
-    if (cookieState !== urlState) throw new AppError('Invalid OAuth state', 400);
+    if (cookieState !== urlState)
+      throw new AppError('Invalid OAuth state', 400);
 
     res.clearCookie('google_link_oauth_state');
 
@@ -452,7 +463,9 @@ export const googleLinkCallback = async (
       { ipAddress, userAgent },
     );
 
-    return res.redirect(`${process.env.CLIENT_URL}/settings/security?google=linked`);
+    return res.redirect(
+      `${process.env.CLIENT_URL}/settings/security?google=linked`,
+    );
   } catch (error) {
     const message =
       error instanceof AppError
@@ -471,7 +484,7 @@ export const getSessions = async (req: Request, res: Response) => {
   const activeSessions = sessions.map((session) => ({
     id: session.id,
     ipAddress: session.ipAddress,
-    userAgent: session.userId,
+    userAgent: session.userAgent,
     createdAt: session.createdAt,
     expiresAt: session.expiresAt,
     currentSession: session.id === sessionId,
@@ -533,4 +546,61 @@ export const unlinkGoogleAccount = async (req: Request, res: Response) => {
   });
 };
 
+export const requestSetPassword = async (req: Request, res: Response) => {
+  await requestSetPasswordService(req.userId);
 
+  res.json({
+    success: true,
+    message: 'Verification code sent to your email',
+  });
+};
+
+export const verifySetPasswordCode = async (
+  req: TypedRequest<VerifySetPasswordCodeInput>,
+  res: Response,
+) => {
+  const { resetToken } = await verifySetPasswordCodeService({
+    userId: req.userId,
+    code: req.body.code,
+  });
+
+  res.cookie('resetToken', resetToken, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'strict',
+    maxAge: fifteenMinutes,
+  });
+
+  res.json({
+    success: true,
+    message: 'Code verified successfully',
+  });
+};
+
+export const setPassword = async (
+  req: TypedRequest<SetPasswordInput>,
+  res: Response,
+) => {
+  const resetToken = req.cookies.resetToken;
+
+  if (!resetToken) {
+    throw new AppError('Invalid or expired password reset session', 400);
+  }
+
+  await setPasswordService({
+    userId: req.userId,
+    resetToken,
+    password: req.body.password,
+  });
+
+  res.clearCookie('resetToken', {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'strict',
+  });
+
+  res.json({
+    success: true,
+    message: 'Password set successfully',
+  });
+};

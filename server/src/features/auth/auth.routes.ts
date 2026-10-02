@@ -24,16 +24,19 @@ import {
   login,
   logout,
   requestPasswordReset,
+  requestSetPassword,
   resendVerification,
   resetPassword,
   revokeAllSessions,
   revokeOtherSessions,
   revokeSession,
+  setPassword,
   signup,
   startGoogleLink,
   unlinkGoogleAccount,
   verifyEmail,
   verifyPasswordResetCode,
+  verifySetPasswordCode,
 } from './auth.controller.js';
 import {
   changePasswordSchema,
@@ -43,9 +46,11 @@ import {
   requestPasswordResetSchema,
   resendVerificationSchema,
   resetPasswordSchema,
+  setPasswordSchema,
   signupSchema,
   verifyEmailSchema,
   verifyPasswordResetCodeSchema,
+  verifySetPasswordCodeSchema,
 } from './auth.schema.js';
 
 const router = express.Router();
@@ -259,6 +264,109 @@ router.post(
   requireAuth,
   validateRequestBody(changePasswordSchema),
   changePassword,
+);
+
+/**
+ * @swagger
+ * /auth/set-password/request:
+ *   post:
+ *     summary: Request verification code to set account password
+ *     description: Sends an OTP code to the authenticated user's email to initiate password setup for OAuth accounts
+ *     tags: [Auth]
+ *     security:
+ *       - cookieAuth: []
+ *     responses:
+ *       200:
+ *         description: Verification code sent successfully
+ *       400:
+ *         description: Account already has a password set
+ *       401:
+ *         description: Unauthorized
+ *       429:
+ *         description: Too many requests
+ */
+router.post(
+  '/set-password/request',
+  requireAuth,
+  verificationLimiter,
+  requestSetPassword,
+);
+
+/**
+ * @swagger
+ * /auth/set-password/verify:
+ *   post:
+ *     summary: Verify OTP code to set account password
+ *     description: Verifies the email OTP code and issues a short-lived reset token cookie to authorize setting a password
+ *     tags: [Auth]
+ *     security:
+ *       - cookieAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [code]
+ *             properties:
+ *               code:
+ *                 type: string
+ *                 example: "123456"
+ *     responses:
+ *       200:
+ *         description: Code verified successfully
+ *       400:
+ *         description: Invalid or expired code
+ *       401:
+ *         description: Unauthorized
+ *       429:
+ *         description: Too many requests
+ */
+router.post(
+  '/set-password/verify',
+  requireAuth,
+  verificationLimiter,
+  validateRequestBody(verifySetPasswordCodeSchema),
+  verifySetPasswordCode,
+);
+
+/**
+ * @swagger
+ * /auth/set-password:
+ *   post:
+ *     summary: Set password for OAuth account
+ *     description: Creates a credential password for the authenticated account using the verified reset token session
+ *     tags: [Auth]
+ *     security:
+ *       - cookieAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [password]
+ *             properties:
+ *               password:
+ *                 type: string
+ *                 format: password
+ *                 example: "NewSecureP@ss123!"
+ *     responses:
+ *       200:
+ *         description: Password set successfully
+ *       400:
+ *         description: Invalid or expired reset session, or account already has a password
+ *       401:
+ *         description: Unauthorized
+ *       429:
+ *         description: Too many requests
+ */
+router.post(
+  '/set-password',
+  requireAuth,
+  passwordResetLimiter,
+  validateRequestBody(setPasswordSchema),
+  setPassword,
 );
 
 /**

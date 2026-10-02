@@ -3,6 +3,8 @@ import { AppError } from '../../utils/app-error.js';
 import { googleAccountLinkedEmailTemplate } from './templates/google-account-linked-email.js';
 import { passwordChangedEmailTemplate } from './templates/password-changed-email.js';
 import { passwordResetEmailTemplate } from './templates/password-reset-email.js';
+import { passwordSetEmailTemplate } from './templates/password-set-email.js';
+import { setPasswordEmailTemplate } from './templates/set-password-email.js';
 import { verificationEmailTemplate } from './templates/verification-email.js';
 import { welcomeEmailTemplate } from './templates/welcome-email.js';
 
@@ -107,3 +109,48 @@ export async function sendGoogleAccountLinkedEmail({
 
   return { data };
 }
+
+export async function sendSetPasswordEmail({
+  email,
+  name,
+  code,
+}: {
+  email: string;
+  code: string;
+  name: string;
+}) {
+  const { error, data } = await resend.emails.send({
+    from: process.env.EMAIL_FROM!,
+    to: [email],
+    subject: 'Set your account password',
+    html: setPasswordEmailTemplate(name, code),
+  });
+
+  if (error) {
+    throw new AppError('Failed to send set password verification email', 500);
+  }
+
+  return { data };
+}
+
+export async function sendPasswordSetEmail({
+  email,
+  name,
+}: {
+  email: string;
+  name: string;
+}) {
+  const { error, data } = await resend.emails.send({
+    from: process.env.EMAIL_FROM!,
+    to: [email],
+    subject: 'Password added to your account',
+    html: passwordSetEmailTemplate(name),
+  });
+
+  if (error) {
+    throw new AppError('Failed to send password set confirmation email', 500);
+  }
+
+  return { data };
+}
+

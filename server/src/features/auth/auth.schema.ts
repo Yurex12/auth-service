@@ -61,6 +61,14 @@ export const idParamsSchema = z.object({
   id: z.uuid().min(1, 'Id is required'),
 });
 
+export const verifySetPasswordCodeSchema = z.object({
+  code: codeSchema,
+});
+
+export const setPasswordSchema = z.object({
+  password: passwordSchema,
+});
+
 export type SignupInput = z.infer<typeof signupSchema>;
 export type VerifyEmailInput = z.infer<typeof verifyEmailSchema>;
 export type ResendVerificationInput = z.infer<typeof resendVerificationSchema>;
@@ -73,5 +81,9 @@ export type VerifyPasswordResetCodeInput = z.infer<
   typeof verifyPasswordResetCodeSchema
 >;
 export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;
+export type VerifySetPasswordCodeInput = z.infer<
+  typeof verifySetPasswordCodeSchema
+>;
+export type SetPasswordInput = z.infer<typeof setPasswordSchema>;
 export type GoogleCallbackQuery = z.infer<typeof googleCallbackSchema>;
 export type IdParam = z.infer<typeof idParamsSchema>;

@@ -14,6 +14,8 @@ import {
   sendGoogleAccountLinkedEmail,
   sendPasswordChangedEmail,
   sendPasswordResetEmail,
+  sendPasswordSetEmail,
+  sendSetPasswordEmail,
   sendVerificationEmail,
   sendWelcomeEmail,
 } from './auth.email.js';
@@ -279,17 +281,9 @@ export const changePassword = async ({
 };
 
 export const requestPasswordReset = async (email: string) => {
-  const user = await db.query.usersTable.findFirst({
-    where: eq(usersTable.email, email),
-    with: {
-      accounts: {
-        where: (account, { eq }) => eq(account.providerId, 'credential'),
-        columns: { id: true },
-      },
-    },
-  });
+  const user = await findUserByEmail(email);
 
-  if (!user || user.accounts.length === 0) return;
+  if (!user) return;
 
   const code = generateOTP();
   const hashedCode = hashToken(code);
@@ -395,7 +389,7 @@ export const resetPassword = async ({
 
   const hashedPassword = await argon.hash(password);
 
-  await db.transaction(async (tx) => {
+  const hasCredentialAccount = await db.transaction(async (tx) => {
     const deletedToken = await tx
       .delete(passwordResetsTable)
       .where(
@@ -410,30 +404,59 @@ export const resetPassword = async ({
     if (deletedToken.length === 0)
       throw new AppError('Invalid or expired password reset session', 400);
 
-    await tx
-      .update(accountsTable)
-      .set({ password: hashedPassword })
-      .where(
+    const credentialAccount = await tx.query.accountsTable.findFirst({
+      where: (account, { and, eq }) =>
         and(
-          eq(accountsTable.userId, tokenData.userId),
-          eq(accountsTable.providerId, 'credential'),
+          eq(account.userId, tokenData.userId),
+          eq(account.providerId, 'credential'),
         ),
-      );
+    });
+
+    if (credentialAccount) {
+      await tx
+        .update(accountsTable)
+        .set({ password: hashedPassword })
+        .where(
+          and(
+            eq(accountsTable.userId, tokenData.userId),
+            eq(accountsTable.providerId, 'credential'),
+          ),
+        );
+    } else {
+      await tx.insert(accountsTable).values({
+        userId: tokenData.userId,
+        accountId: tokenData.userId,
+        providerId: 'credential',
+        password: hashedPassword,
+      });
+    }
 
     await tx
       .delete(sessionsTable)
       .where(eq(sessionsTable.userId, tokenData.userId));
+
+    return !!credentialAccount;
   });
 
   try {
-    await sendPasswordChangedEmail({
-      email: tokenData.user.email,
-      name: tokenData.user.name,
-    });
+    if (hasCredentialAccount) {
+      await sendPasswordChangedEmail({
+        email: tokenData.user.email,
+        name: tokenData.user.name,
+      });
+    } else {
+      await sendPasswordSetEmail({
+        email: tokenData.user.email,
+        name: tokenData.user.name,
+      });
+    }
   } catch (error) {
-    logger.error({ err: error }, 'Failed to send password changed email');
+    logger.error({ err: error }, 'Failed to send password notification email');
   }
+
+  return { hasCredentialAccount };
 };
+
 export const authenticateWithGoogle = async (
   {
     name,
@@ -655,4 +678,184 @@ export const unlinkGoogleAccount = async (userId: string) => {
   }
 };
 
+export const requestSetPassword = async (userId: string) => {
+  const credentialAccount = await db.query.accountsTable.findFirst({
+    where: (account, { and, eq }) =>
+      and(eq(account.userId, userId), eq(account.providerId, 'credential')),
+  });
 
+  if (credentialAccount)
+    throw new AppError(
+      'Account already has a password set. Use change password instead.',
+      400,
+    );
+
+  const user = await db.query.usersTable.findFirst({
+    where: (user, { eq }) => eq(user.id, userId),
+  });
+
+  if (!user) throw new AppError('User not found', 404);
+
+  const code = generateOTP();
+  const hashedCode = hashToken(code);
+
+  await db.transaction(async (tx) => {
+    await tx
+      .delete(passwordResetsTable)
+      .where(eq(passwordResetsTable.userId, user.id));
+
+    await tx.insert(passwordResetsTable).values({
+      tokenHash: hashedCode,
+      type: 'code',
+      userId: user.id,
+      expiresAt: new Date(Date.now() + fifteenMinutes),
+    });
+  });
+
+  await sendSetPasswordEmail({
+    email: user.email,
+    name: user.name,
+    code,
+  });
+};
+
+export const verifySetPasswordCode = async ({
+  userId,
+  code,
+}: {
+  userId: string;
+  code: string;
+}) => {
+  const credentialAccount = await db.query.accountsTable.findFirst({
+    where: (account, { and, eq }) =>
+      and(eq(account.userId, userId), eq(account.providerId, 'credential')),
+  });
+
+  if (credentialAccount) {
+    throw new AppError(
+      'Account already has a password set. Use change password instead.',
+      400,
+    );
+  }
+
+  const hashedCode = hashToken(code);
+
+  const codeData = await db.query.passwordResetsTable.findFirst({
+    where: and(
+      eq(passwordResetsTable.userId, userId),
+      eq(passwordResetsTable.tokenHash, hashedCode),
+      eq(passwordResetsTable.type, 'code'),
+    ),
+  });
+
+  if (!codeData) throw new AppError('Invalid or expired code', 400);
+
+  if (new Date() > codeData.expiresAt)
+    throw new AppError('Invalid or expired code', 400);
+
+  const resetToken = generateToken();
+  const hashedToken = hashToken(resetToken);
+
+  await db.transaction(async (tx) => {
+    const deletedCode = await tx
+      .delete(passwordResetsTable)
+      .where(
+        and(
+          eq(passwordResetsTable.id, codeData.id),
+          eq(passwordResetsTable.userId, userId),
+          eq(passwordResetsTable.type, 'code'),
+        ),
+      )
+      .returning({ id: passwordResetsTable.id });
+
+    if (deletedCode.length === 0)
+      throw new AppError('Invalid or expired code', 400);
+
+    await tx.insert(passwordResetsTable).values({
+      tokenHash: hashedToken,
+      type: 'reset_token',
+      userId,
+      expiresAt: new Date(Date.now() + fifteenMinutes),
+    });
+  });
+
+  return { resetToken };
+};
+
+export const setPassword = async ({
+  userId,
+  resetToken,
+  password,
+}: {
+  userId: string;
+  resetToken: string;
+  password: string;
+}) => {
+  const credentialAccount = await db.query.accountsTable.findFirst({
+    where: (account, { and, eq }) =>
+      and(eq(account.userId, userId), eq(account.providerId, 'credential')),
+  });
+
+  if (credentialAccount) {
+    throw new AppError(
+      'Account already has a password set. Use change password instead.',
+      400,
+    );
+  }
+
+  const hashedToken = hashToken(resetToken);
+
+  const tokenData = await db.query.passwordResetsTable.findFirst({
+    where: and(
+      eq(passwordResetsTable.userId, userId),
+      eq(passwordResetsTable.tokenHash, hashedToken),
+      eq(passwordResetsTable.type, 'reset_token'),
+    ),
+    with: {
+      user: { columns: { email: true, name: true } },
+    },
+  });
+
+  if (!tokenData)
+    throw new AppError('Invalid or expired password reset session', 400);
+
+  if (new Date() > tokenData.expiresAt)
+    throw new AppError('Invalid or expired password reset session', 400);
+
+  const hashedPassword = await argon.hash(password);
+
+  await db.transaction(async (tx) => {
+    const deletedToken = await tx
+      .delete(passwordResetsTable)
+      .where(
+        and(
+          eq(passwordResetsTable.id, tokenData.id),
+          eq(passwordResetsTable.userId, userId),
+          eq(passwordResetsTable.type, 'reset_token'),
+        ),
+      )
+      .returning({ id: passwordResetsTable.id });
+
+    if (deletedToken.length === 0)
+      throw new AppError('Invalid or expired password reset session', 400);
+
+    await tx.insert(accountsTable).values({
+      userId,
+      accountId: userId,
+      providerId: 'credential',
+      password: hashedPassword,
+    });
+  });
+
+  try {
+    await sendPasswordSetEmail({
+      email: tokenData.user.email,
+      name: tokenData.user.name,
+    });
+  } catch (error) {
+    logger.error(
+      { err: error },
+      'Failed to send password set confirmation email',
+    );
+  }
+};

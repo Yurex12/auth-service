@@ -8,6 +8,7 @@ import app from '../../app.js';
 import { db } from '../../db/index.js';
 import {
   accountsTable,
+  passwordResetsTable,
   rolesTable,
   sessionsTable,
   usersTable,
@@ -30,6 +31,8 @@ vi.mock('../../features/auth/auth.email.js', () => ({
   sendGoogleAccountLinkedEmail: vi
     .fn()
     .mockResolvedValue({ data: { id: 'mock-id' } }),
+  sendSetPasswordEmail: vi.fn().mockResolvedValue({ data: { id: 'mock-id' } }),
+  sendPasswordSetEmail: vi.fn().mockResolvedValue({ data: { id: 'mock-id' } }),
 }));
 
 // Helper to seed a test user directly into DB
