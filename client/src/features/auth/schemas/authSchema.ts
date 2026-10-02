@@ -61,6 +61,35 @@ export const resetPasswordSchema = z
     path: ['confirmPassword'],
   });
 
+export const verifySetPasswordCodeSchema = z.object({
+  code: codeSchema,
+});
+
+export const setPasswordFormSchema = z
+  .object({
+    password: passwordSchema,
+    confirmPassword: z.string().min(1, 'Please confirm your password'),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: 'Passwords do not match',
+    path: ['confirmPassword'],
+  });
+
+export const changePasswordSchema = z
+  .object({
+    currentPassword: z.string().min(1, 'Current password is required'),
+    newPassword: passwordSchema,
+    confirmPassword: z.string().min(1, 'Please confirm your new password'),
+  })
+  .refine((data) => data.newPassword === data.confirmPassword, {
+    message: 'Passwords do not match',
+    path: ['confirmPassword'],
+  })
+  .refine((data) => data.currentPassword !== data.newPassword, {
+    message: 'New password cannot be the same as current password',
+    path: ['newPassword'],
+  });
+
 export type LoginFormValues = z.infer<typeof loginSchema>;
 export type SignupFormValues = z.infer<typeof signupSchema>;
 export type VerifyEmailFormValues = z.infer<typeof verifyEmailSchema>;
@@ -72,3 +101,8 @@ export type RequestPasswordResetFormValues = z.infer<
 >;
 export type VerifyResetCodeFormValues = z.infer<typeof verifyResetCodeSchema>;
 export type ResetPasswordFormValues = z.infer<typeof resetPasswordSchema>;
+export type VerifySetPasswordCodeFormValues = z.infer<
+  typeof verifySetPasswordCodeSchema
+>;
+export type SetPasswordFormValues = z.infer<typeof setPasswordFormSchema>;
+export type ChangePasswordFormValues = z.infer<typeof changePasswordSchema>;
