@@ -15,6 +15,7 @@ import { ConfirmLinkPage } from './pages/ConfirmLinkPage';
 import { VerifySetPasswordCodePage } from './pages/VerifySetPasswordCodePage';
 import { SetPasswordPage } from './pages/SetPasswordPage';
 import { ChangePasswordPage } from './pages/ChangePasswordPage';
+import { ProfilePage } from './pages/ProfilePage';
 import { NotFoundPage } from './pages/NotFoundPage';
 
 function App() {
@@ -31,6 +32,7 @@ function App() {
           }
         >
           <Route path='/' element={<HomePage />} />
+          <Route path='/profile' element={<ProfilePage />} />
           <Route path='/settings/security' element={<SecuritySettingsPage />} />
           <Route path='/link-account' element={<SecuritySettingsPage />} />
           <Route path='/change-password' element={<ChangePasswordPage />} />
