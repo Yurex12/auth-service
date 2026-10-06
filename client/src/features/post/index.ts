@@ -9,3 +9,7 @@ export * from './hooks/useUpdatePost';
 export * from './hooks/useDeletePost';
 export * from './components/PostItem';
 export * from './components/PostList';
+export * from './components/FeedHeader';
+export * from './components/PostForm';
+export * from './components/CreateEditPostDialog';
+

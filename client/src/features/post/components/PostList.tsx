@@ -1,18 +1,27 @@
 import { useState } from 'react';
+import { useCurrentUser } from '@/features/auth';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { PostItem } from './PostItem';
+import { CreateEditPostDialog } from './CreateEditPostDialog';
 import { useDeletePost } from '../hooks/useDeletePost';
 import type { Post } from '../types/postTypes';
 
 interface PostListProps {
   posts: Post[];
-  currentUserId?: string;
-  isAdmin?: boolean;
 }
 
-export function PostList({ posts, currentUserId, isAdmin }: PostListProps) {
-  const [selectedPost, setSelectedPost] = useState<Post | null>(null);
-  const { mutate: deletePost, isPending } = useDeletePost();
+export function PostList({ posts }: PostListProps) {
+  const { data } = useCurrentUser();
+  const user = data?.user;
+
+  const [selectedPostDeleteId, setSelectedPostDeleteId] = useState<string | null>(null);
+  const [selectedEditPost, setSelectedEditPost] = useState<Post | null>(null);
+  const { mutate: deletePost, isPending: isDeleting } = useDeletePost();
+
+  if (!user) return null;
+
+  const currentUserId = user.id;
+  const isAdmin = user.role.name.toLowerCase() === 'admin';
 
   return (
     <>
@@ -23,27 +32,34 @@ export function PostList({ posts, currentUserId, isAdmin }: PostListProps) {
             post={post}
             currentUserId={currentUserId}
             isAdmin={isAdmin}
-            onSelectDelete={setSelectedPost}
+            onSelectEdit={setSelectedEditPost}
+            onSelectDelete={setSelectedPostDeleteId}
           />
         ))}
       </div>
 
-      {selectedPost && (
+      {selectedPostDeleteId && (
         <ConfirmDialog
-          open={!!selectedPost}
-          onOpenChange={(open) => {
-            if (!open) setSelectedPost(null);
-          }}
+          open={Boolean(selectedPostDeleteId)}
+          onOpenChange={(open) => (!open ? setSelectedPostDeleteId(null) : null)}
           title='Delete Post?'
           description='Are you sure you want to delete this post? This action cannot be undone.'
-          confirmText={isPending ? 'Deleting...' : 'Delete Post'}
+          confirmText={isDeleting ? 'Deleting...' : 'Delete Post'}
           variant='destructive'
-          isLoading={isPending}
+          isLoading={isDeleting}
           onConfirm={() => {
-            deletePost(selectedPost.id, {
-              onSettled: () => setSelectedPost(null),
+            deletePost(selectedPostDeleteId, {
+              onSettled: () => setSelectedPostDeleteId(null),
             });
           }}
+        />
+      )}
+
+      {selectedEditPost && (
+        <CreateEditPostDialog
+          post={selectedEditPost}
+          open={Boolean(selectedEditPost)}
+          onOpenChange={(open) => (!open ? setSelectedEditPost(null) : null)}
         />
       )}
     </>

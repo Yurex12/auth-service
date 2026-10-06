@@ -1,13 +1,8 @@
 export { cn } from 'cn';
 
 export function formatDate(
-  dateStr: string,
-  options?: Intl.DateTimeFormatOptions,
-): string {
-  return new Date(dateStr).toLocaleDateString(undefined, {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-    ...options,
-  });
+  date: string,
+  options: Intl.DateTimeFormatOptions = { dateStyle: 'medium' },
+) {
+  return new Intl.DateTimeFormat('en-US', options).format(new Date(date));
 }

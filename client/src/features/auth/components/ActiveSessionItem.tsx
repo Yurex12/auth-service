@@ -7,7 +7,8 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import type { SessionItem } from '../types/authTypes';
-import { parseUserAgent, formatSessionDate } from '../utils/sessionParser';
+import { parseUserAgent } from '../utils/sessionParser';
+import { formatDate } from '@/lib/utils';
 
 interface ActiveSessionItemProps {
   session: SessionItem;
@@ -53,7 +54,13 @@ export function ActiveSessionItem({
               </span>
             )}
             {session.ipAddress && <span>•</span>}
-            <span>Signed in {formatSessionDate(session.createdAt)}</span>
+            <span>
+              Signed in{' '}
+              {formatDate(session.createdAt, {
+                dateStyle: 'medium',
+                timeStyle: 'short',
+              })}
+            </span>
           </div>
         </div>
       </div>

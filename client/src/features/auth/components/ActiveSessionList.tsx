@@ -30,9 +30,7 @@ export function ActiveSessionList({ sessions }: ActiveSessionListProps) {
       {selectedSession && (
         <ConfirmDialog
           open={!!selectedSession}
-          onOpenChange={(open) => {
-            if (!open) setSelectedSession(null);
-          }}
+          onOpenChange={(open) => (!open ? setSelectedSession(null) : null)}
           title='Revoke Session?'
           description={
             <>
