@@ -82,6 +82,14 @@ async function main() {
         permissionId: postsReadId,
       },
       {
+        roleId: userRoleId,
+        permissionId: postsUpdateId,
+      },
+      {
+        roleId: userRoleId,
+        permissionId: postsDeleteId,
+      },
+      {
         roleId: adminRoleId,
         permissionId: postsReadId,
       },

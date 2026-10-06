@@ -551,7 +551,7 @@ export const linkGoogleAccount = async (
     accountId: string;
     userId: string;
   },
-  { ipAddress, userAgent }: LoginMetadata,
+  metadata?: LoginMetadata,
 ) => {
   const existingAccount = await db.query.accountsTable.findFirst({
     where: (account, { and, eq }) =>
@@ -580,16 +580,20 @@ export const linkGoogleAccount = async (
     userId,
   });
 
-  const sessionToken = generateToken();
-  const hashedSessionToken = hashToken(sessionToken);
+  let sessionToken: string | null = null;
 
-  await db.insert(sessionsTable).values({
-    token: hashedSessionToken,
-    userId: user.id,
-    expiresAt: new Date(Date.now() + thirtyDays),
-    ipAddress,
-    userAgent,
-  });
+  if (metadata) {
+    sessionToken = generateToken();
+    const hashedSessionToken = hashToken(sessionToken);
+
+    await db.insert(sessionsTable).values({
+      token: hashedSessionToken,
+      userId: user.id,
+      expiresAt: new Date(Date.now() + thirtyDays),
+      ipAddress: metadata.ipAddress,
+      userAgent: metadata.userAgent,
+    });
+  }
 
   try {
     await sendGoogleAccountLinkedEmail({ email: user.email, name: user.name });

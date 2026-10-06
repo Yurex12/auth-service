@@ -240,7 +240,6 @@ export const googleLogin = async (req: Request, res: Response) => {
     response_type: 'code',
     scope: 'openid email profile',
     state,
-    prompt: 'consent',
   });
 
   const googleAuthUrl = `https://accounts.google.com/o/oauth2/v2/auth?${params}`;
@@ -358,12 +357,14 @@ export const linkGoogleAccount = async (req: Request, res: Response) => {
     { userAgent, ipAddress },
   );
 
-  res.cookie('session', sessionToken, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
-    maxAge: thirtyDays,
-  });
+  if (sessionToken) {
+    res.cookie('session', sessionToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: thirtyDays,
+    });
+  }
 
   res.clearCookie('google_link_token');
 
@@ -417,9 +418,6 @@ export const googleLinkCallback = async (
     const code = req.query.code;
     const error = req.query.error;
 
-    const userAgent = req.get('user-agent');
-    const ipAddress = req.ip;
-
     if (cookieState !== urlState)
       throw new AppError('Invalid OAuth state', 400);
 
@@ -455,13 +453,10 @@ export const googleLinkCallback = async (
       );
     }
 
-    await linkGoogleAccountService(
-      {
-        accountId: payload.sub,
-        userId: req.userId,
-      },
-      { ipAddress, userAgent },
-    );
+    await linkGoogleAccountService({
+      accountId: payload.sub,
+      userId: req.userId,
+    });
 
     return res.redirect(
       `${process.env.CLIENT_URL}/settings/security?google=linked`,
