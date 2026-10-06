@@ -9,13 +9,13 @@ import { VerifyEmailPage } from './pages/VerifyEmailPage';
 import { ForgotPasswordPage } from './pages/ForgotPasswordPage';
 import { VerifyResetCodePage } from './pages/VerifyResetCodePage';
 import { ResetPasswordPage } from './pages/ResetPasswordPage';
-import { LinkAccountPage } from './pages/LinkAccountPage';
 import { SecuritySettingsPage } from './pages/SecuritySettingsPage';
 import { ConfirmLinkPage } from './pages/ConfirmLinkPage';
 import { VerifySetPasswordCodePage } from './pages/VerifySetPasswordCodePage';
 import { SetPasswordPage } from './pages/SetPasswordPage';
 import { ChangePasswordPage } from './pages/ChangePasswordPage';
 import { ProfilePage } from './pages/ProfilePage';
+import { AdminUsersPage } from './pages/AdminUsersPage';
 import { NotFoundPage } from './pages/NotFoundPage';
 
 function App() {
@@ -32,6 +32,7 @@ function App() {
           }
         >
           <Route path='/' element={<HomePage />} />
+          <Route path='/admin/users' element={<AdminUsersPage />} />
           <Route path='/profile' element={<ProfilePage />} />
           <Route path='/settings/security' element={<SecuritySettingsPage />} />
           <Route path='/link-account' element={<SecuritySettingsPage />} />
