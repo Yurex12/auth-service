@@ -2,9 +2,15 @@ import express from 'express';
 import { requireAuth } from '../../middleware/auth.middleware.js';
 import {
   loginLimiter,
-  passwordResetLimiter,
+  requestPasswordResetLimiter,
+  verifyPasswordResetLimiter,
+  resetPasswordLimiter,
+  requestSetPasswordLimiter,
+  verifySetPasswordLimiter,
+  setPasswordLimiter,
   signupLimiter,
-  verificationLimiter,
+  verifyEmailLimiter,
+  resendVerificationLimiter,
 } from '../../middleware/rate-limit.js';
 import {
   validateRequestBody,
@@ -130,7 +136,7 @@ router.post(
  */
 router.post(
   '/verify-email',
-  verificationLimiter,
+  verifyEmailLimiter,
   validateRequestBody(verifyEmailSchema),
   verifyEmail,
 );
@@ -164,7 +170,7 @@ router.post(
  */
 router.post(
   '/resend-verification',
-  verificationLimiter,
+  resendVerificationLimiter,
   validateRequestBody(resendVerificationSchema),
   resendVerification,
 );
@@ -288,7 +294,7 @@ router.post(
 router.post(
   '/set-password/request',
   requireAuth,
-  verificationLimiter,
+  requestSetPasswordLimiter,
   requestSetPassword,
 );
 
@@ -325,7 +331,7 @@ router.post(
 router.post(
   '/set-password/verify',
   requireAuth,
-  verificationLimiter,
+  verifySetPasswordLimiter,
   validateRequestBody(verifySetPasswordCodeSchema),
   verifySetPasswordCode,
 );
@@ -364,7 +370,7 @@ router.post(
 router.post(
   '/set-password',
   requireAuth,
-  passwordResetLimiter,
+  setPasswordLimiter,
   validateRequestBody(setPasswordSchema),
   setPassword,
 );
@@ -415,7 +421,7 @@ router.post('/logout', requireAuth, logout);
  */
 router.post(
   '/password-reset',
-  passwordResetLimiter,
+  requestPasswordResetLimiter,
   validateRequestBody(requestPasswordResetSchema),
   requestPasswordReset,
 );
@@ -452,7 +458,7 @@ router.post(
  */
 router.post(
   '/password-reset/verify',
-  passwordResetLimiter,
+  verifyPasswordResetLimiter,
   validateRequestBody(verifyPasswordResetCodeSchema),
   verifyPasswordResetCode,
 );
@@ -486,7 +492,7 @@ router.post(
  */
 router.post(
   '/password-reset/confirm',
-  passwordResetLimiter,
+  resetPasswordLimiter,
   validateRequestBody(resetPasswordSchema),
   resetPassword,
 );
